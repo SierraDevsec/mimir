@@ -164,9 +164,38 @@ SubagentStart hook → buildSmartContext()
   Stage 9: Project marks (cross-session, max 5) → "## Past Marks"
            File-based marks (matching files_read/files_modified) prioritized
   → injected as additionalContext (6000 char budget)
+
+UserPromptSubmit hook → buildPromptContext()
+  getProjectMarks(projectId, sessionId, 5) → "## Past Marks"
+  → only title shown (truncated), ORDER BY created_at DESC
 ```
 
 Promoted marks (`promoted_to IS NOT NULL`) are excluded from injection.
+
+### Push vs Pull Strategy (TODO: implement)
+
+Marks use two retrieval modes: **push** (auto-injected) and **pull** (agent-initiated search).
+
+**Push (injection)** — lean, critical-only:
+- Inject only `warning` and `decision` marks (not discovery/note)
+- These are gotchas and past choices that agents MUST know
+- `ORDER BY type_weight DESC, created_at DESC LIMIT 5`
+
+**Pull (active search)** — on-demand, keyword-based:
+- Agents call `search_observations` MCP tool when they need context
+- No limit — returns full results matching query
+
+**When agents should pull** (add to self-mark skill or rules):
+
+| Timing | Trigger | Example |
+|--------|---------|---------|
+| Before starting a task | Search task keywords | `search("observation WAL persistence")` |
+| Before modifying a file | Search file path | `search("db.ts")` |
+| When hitting an error | Search error keywords | `search("WAL corruption")` |
+| When making a decision | Search prior decisions | `search("Hono decision")` |
+
+**Current state**: Push works (naive LIMIT 5), pull tool exists but agents don't know when to use it.
+**TODO**: Update self-mark skill with search timing guide + change injection to warning/decision only.
 
 ### Memory Hierarchy
 
@@ -288,6 +317,7 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 
 ## Roadmap
 
+- **Mark push/pull redesign**: Push = warning/decision only, pull = self-mark skill with search timing guide
 - **MCP in subagents**: Monitor future Claude Code versions — remove curl fallback when supported
 - **Vector search**: DuckDB vss extension (evaluate when needed)
 - **Curator automation**: Periodic auto-run via cron/hook trigger
