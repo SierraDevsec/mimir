@@ -329,11 +329,20 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 - Add search timing guide to self-mark skill or create dedicated search skill
 - Teaches agents when to call `search_observations` (before task, before file edit, on error, on decision)
 
-**Phase 3 — Push filter**:
+**Phase 3 — Mark lifecycle (resolved status)**:
+- Add `status` column to observations: `active` (default) | `resolved`
+- `active` marks → push + pull eligible
+- `resolved` marks → pull-only (searchable for history, excluded from push injection)
+- Add `resolve_observation` MCP tool + API endpoint (`PATCH /api/observations/:id/resolve`)
+- When a fix is deployed, agent or curator resolves related warning/decision marks
+- Prevents stale warnings about fixed issues from polluting push injection
+
+**Phase 4 — Push filter**:
 - Change injection to warning/decision only (not discovery/note)
+- Only inject `status = 'active'` marks
 - Files: `src/server/services/queries/relevantMarks.ts`, `intelligence.ts`
 
-**Phase 4 — Vector search** (requires embedding model):
+**Phase 5 — Vector search** (requires embedding model):
 - DuckDB `vss` extension + FLOAT[] embedding column on observations
 - Embedding options: OpenAI text-embedding-3-small (cheap, external) or local ollama (offline, setup)
 - `saveObservation()` → generate embedding → store alongside mark
