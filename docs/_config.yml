@@ -1,18 +1,18 @@
-title: clnode
+title: Mimir
 description: Claude Code Swarm Intelligence Plugin
 remote_theme: just-the-docs/just-the-docs
 
 url: https://sierradevsec.github.io
-baseurl: /clnode
+baseurl: /mimir
 
 color_scheme: dark
 
 aux_links:
-  GitHub: https://github.com/SierraDevsec/clnode
+  GitHub: https://github.com/SierraDevsec/mimir
 
 nav_external_links:
   - title: npm
-    url: https://www.npmjs.com/package/clnode
+    url: https://www.npmjs.com/package/mimir
 
 search_enabled: true
 heading_anchors: true
@@ -20,7 +20,7 @@ heading_anchors: true
 back_to_top: true
 back_to_top_text: "Back to top"
 
-footer_content: "clnode &copy; SierraDevsec. Source Available License."
+footer_content: "Mimir &copy; SierraDevsec. Source Available License."
 
 exclude:
   - screenshots/
