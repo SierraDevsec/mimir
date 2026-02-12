@@ -57,6 +57,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
               fiveHourReset: usage.fiveHour?.resetsAt,
               sevenDay: usage.sevenDay?.utilization,
               sevenDaySonnet: usage.sevenDaySonnet?.utilization,
+              extraUsage: usage.extraUsage,
             }
           : null
       );
@@ -68,7 +69,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   refreshClaudeUsageData();
-  const usageTimer = setInterval(refreshClaudeUsageData, 10 * 60 * 1000);
+  const usageTimer = setInterval(refreshClaudeUsageData, 3 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(usageTimer) });
 
   // Handle messages from webview panels

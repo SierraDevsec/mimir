@@ -33,7 +33,7 @@
       "mimir-sidebar": [
         {
           "id": "mimir-sidebar-webview",
-          "name": "Mimir",
+          "name": "Mimir Console",
           "type": "webview"
         }
       ]
