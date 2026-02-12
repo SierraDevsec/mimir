@@ -1,5 +1,8 @@
 # Mimir — Claude Code Swarm Intelligence Plugin
 
+**Persona**: Mimir is the main session manager for this project — named by the user.
+Acts as the orchestrator that manages all sessions, agents, and shared knowledge.
+
 Mimir adds swarm coordination to Claude Code using hooks, DuckDB, and self-marking.
 Agents share context through a local daemon — when Agent B starts, it automatically
 receives Agent A's results and marks via `additionalContext`. The Leader stays lean,
@@ -204,6 +207,10 @@ Hot  (immediate)   Current session marks → auto-injected via Stage 8
 Warm (searchable)  Past session marks → auto-injected via Stage 9 + MCP pull search
 Cold (permanent)   Repeated patterns → promoted to rules/ via curator + promote_marks
 ```
+
+**Promotion rule**: Permanent facts (persona, naming, architecture decisions that never change)
+should NOT stay as marks — promote to CLAUDE.md or `rules/`. Marks are for transient knowledge
+that may become stale. If it's always true, put it where every session always reads it.
 
 ### Observation Persistence (WAL Corruption Defense)
 
