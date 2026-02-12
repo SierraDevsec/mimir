@@ -11,7 +11,7 @@ nav_order: 2
 
 ```
 src/
-  cli/index.ts          — CLI entry point (clnode start/stop/init/status/ui/logs)
+  cli/index.ts          — CLI entry point (mimir start/stop/init/status/ui/logs)
   hooks/hook.sh         — stdin→stdout hook script (jq + curl)
   server/
     index.ts            — Hono server entry point (port 3100)
@@ -34,9 +34,9 @@ src/
 
 templates/
   hooks-config.json     — Hook configuration template
-  agents/               — Agent definitions (clnode-reviewer, clnode-curator)
+  agents/               — Agent definitions (mimir-reviewer, mimir-curator)
   agent-memory/         — Seed MEMORY.md files
-  skills/               — Skills (compress-output, compress-review, clnode-agents)
+  skills/               — Skills (compress-output, compress-review, mimir-agents)
   rules/                — Swarm rules (team.md)
 
 vscode-extension/       — VSCode Extension (standalone package)
@@ -76,7 +76,7 @@ Agent finishes
 
 ### intelligence.ts
 
-The brain of clnode. Two main functions:
+The brain of mimir. Two main functions:
 
 - **`buildSmartContext()`** — Called on SubagentStart. Assembles relevant context from siblings, same-type history, cross-session data, and tagged entries.
 - **`buildPromptContext()`** — Called on UserPromptSubmit. Shows active agents, open tasks, recent decisions/blockers, and completed agent summaries.

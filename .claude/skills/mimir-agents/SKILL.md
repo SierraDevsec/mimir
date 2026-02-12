@@ -1,5 +1,5 @@
 ---
-name: clnode-agents
+name: mimir-agents
 description: Discover installed agents/skills/rules and create new agents
 version: 2.0.0
 ---

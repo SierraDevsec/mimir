@@ -1,5 +1,5 @@
 {
-  "name": "clnode",
+  "name": "mimir",
   "version": "0.1.6",
   "description": "Claude Code swarm intelligence plugin — shared memory for multi-agent coordination via hooks + DuckDB",
   "type": "module",
@@ -14,7 +14,7 @@
     "cli"
   ],
   "bin": {
-    "clnode": "./dist/cli/index.js"
+    "mimir": "./dist/cli/index.js"
   },
   "files": [
     "dist/",

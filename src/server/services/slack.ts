@@ -7,7 +7,7 @@ import { getRegisteredAgents } from "./registry.js";
 import { getActiveSessionsByProject } from "./session.js";
 import { getTasksByProject } from "./task.js";
 
-const CLNODE_PORT = parseInt(process.env.CLNODE_PORT ?? "3100", 10);
+const MIMIR_PORT = parseInt(process.env.MIMIR_PORT ?? "3100", 10);
 
 let slackApp: App | null = null;
 
@@ -25,7 +25,7 @@ async function handleCommand(text: string, ctx: SlackCommandContext): Promise<st
 
   if (cmd === "!help") {
     return [
-      "*clnode Slack Commands*",
+      "*Mimir Slack Commands*",
       "`!help` — Show this help",
       "`!status` — Active sessions & agents summary",
       "`!agents` — List registered agents",
@@ -111,7 +111,7 @@ export function startSlackBridge(projectId: string): void {
 
   const cmdCtx: SlackCommandContext = { projectId, app, channelId };
 
-  // Inbound: Slack → clnode
+  // Inbound: Slack → mimir
   app.message(async ({ message }) => {
     // Only handle regular user messages (not bot messages, not edits)
     if (message.subtype || !("text" in message) || !message.text) return;
@@ -144,7 +144,7 @@ export function startSlackBridge(projectId: string): void {
     }
   });
 
-  // Outbound: clnode → Slack (via WebSocket)
+  // Outbound: mimir → Slack (via WebSocket)
   connectWsForOutbound(app, channelId);
 
   app.start().then(() => {
@@ -156,7 +156,7 @@ export function startSlackBridge(projectId: string): void {
 }
 
 function connectWsForOutbound(app: App, channelId: string): void {
-  const wsUrl = `ws://localhost:${CLNODE_PORT}/ws`;
+  const wsUrl = `ws://localhost:${MIMIR_PORT}/ws`;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   function connect() {

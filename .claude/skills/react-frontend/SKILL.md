@@ -1,9 +1,9 @@
 ---
 name: react-frontend
-description: React frontend development conventions for clnode Web UI
+description: React frontend development conventions for mimir Web UI
 ---
 
-# clnode React Frontend
+# mimir React Frontend
 
 ## Tech Stack
 - React 19 + TypeScript + Vite 7 + TailwindCSS 4
@@ -50,7 +50,7 @@ src/web/
 - `useQuery` auto-reloads on WebSocket events (500ms debounce) via `useWebSocket()`
 - Project filtering: read `projectId` from `useProject()` hook, pass to API calls
 
-## Styling (clnode-specific)
+## Styling (mimir-specific)
 - Dark theme: `bg-zinc-950`, `text-zinc-100` palette (zinc, not gray)
 - Accent: emerald-400 for branding, varied chart colors
 - Status colors: green (active/completed), yellow (in_progress), gray (pending)

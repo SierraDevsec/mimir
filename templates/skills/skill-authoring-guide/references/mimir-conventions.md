@@ -1,4 +1,4 @@
-# clnode Skill Conventions
+# mimir Skill Conventions
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@
 
 ## Skill Types: Preloaded vs User-Invoked
 
-clnode has two distinct skill usage patterns:
+mimir has two distinct skill usage patterns:
 
 ### Preloaded Skills
 
@@ -48,7 +48,7 @@ skills:
 
 ### User-Invoked Skills
 
-Triggered by user slash command (e.g., `/clnode-agents`).
+Triggered by user slash command (e.g., `/mimir-agents`).
 Only loaded when explicitly requested.
 
 **Characteristics**:
@@ -57,7 +57,7 @@ Only loaded when explicitly requested.
 - Best for: workflows, generators, discovery tools
 
 **Current user-invoked skills**:
-- `clnode-agents` — agent discovery and creation
+- `mimir-agents` — agent discovery and creation
 - `skill-authoring-guide` — this skill
 
 ---
@@ -79,7 +79,7 @@ skills:
 ---
 ```
 
-When creating a new preloaded skill, update `clnode-agents` skill's
+When creating a new preloaded skill, update `mimir-agents` skill's
 Step 3-3 to include the new skill in the auto-assignment rules:
 
 ```markdown
@@ -92,7 +92,7 @@ Step 3-3 to include the new skill in the auto-assignment rules:
 
 ## MCP Tool Integration
 
-Some skills instruct agents to call clnode MCP tools. The MCP server
+Some skills instruct agents to call mimir MCP tools. The MCP server
 (`src/mcp/server.ts`) runs as a sidecar process providing:
 
 ### Available MCP Tools
@@ -164,7 +164,7 @@ templates/skills/{skill-name}/
 └── references/
 ```
 
-`clnode init` copies from templates/ to .claude/skills/.
+`mimir init` copies from templates/ to .claude/skills/.
 
 ### Adding a new skill to init
 
@@ -199,9 +199,9 @@ User-invoked skills don't need version (they're not cached in agent context).
 |------|---------|---------|
 | Skill name | kebab-case | `self-mark`, `skill-authoring-guide` |
 | Skill directory | same as name | `templates/skills/self-mark/` |
-| Reference files | kebab-case.md | `categories.md`, `clnode-conventions.md` |
+| Reference files | kebab-case.md | `categories.md`, `mimir-conventions.md` |
 | Script files | snake_case | `validate_skill.py` |
 
-**clnode prefix rule**: Use `clnode-` prefix only for skills that are
-specific to clnode orchestration (e.g., `clnode-agents`). Generic skills
+**mimir prefix rule**: Use `mimir-` prefix only for skills that are
+specific to mimir orchestration (e.g., `mimir-agents`). Generic skills
 (e.g., `compress-output`, `self-mark`) don't need the prefix.

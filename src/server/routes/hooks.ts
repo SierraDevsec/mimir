@@ -305,7 +305,7 @@ hooks.post("/:event", async (c) => {
         const agentId = body.agent_id ?? null;
         const agentName = body.agent_name ?? body.agent_type ?? "unknown";
 
-        // Sync with clnode tasks table if task title matches
+        // Sync with mimir tasks table if task title matches
         if (taskTitle) {
           try {
             // Find matching in-progress task by title/assigned agent

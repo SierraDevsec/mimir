@@ -417,7 +417,7 @@ describe("intelligence service", () => {
       );
 
       expect(warning).not.toBeNull();
-      expect(warning).toContain("[clnode warning]");
+      expect(warning).toContain("[mimir warning]");
       expect(warning).toContain("backend-dev");
       expect(warning).toContain("1 incomplete task");
       expect(warning).toContain("[pending] Pending Task");
@@ -628,7 +628,7 @@ describe("intelligence service", () => {
     describe("edge cases", () => {
       it("should return fallback message when nothing to report", async () => {
         const context = await buildPromptContext(fixtures.sessionId);
-        expect(context).toBe("[clnode project context]\n\n(No active tasks or agents)");
+        expect(context).toBe("[mimir project context]\n\n(No active tasks or agents)");
       });
 
       it("should include header when there is content", async () => {
@@ -638,7 +638,7 @@ describe("intelligence service", () => {
         );
 
         const context = await buildPromptContext(fixtures.sessionId);
-        expect(context).toContain("[clnode project context]");
+        expect(context).toContain("[mimir project context]");
       });
     });
   });

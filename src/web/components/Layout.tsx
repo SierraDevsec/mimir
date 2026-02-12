@@ -43,7 +43,7 @@ export default function Layout() {
         <div className="p-4 pb-6">
           <h1 className="text-lg font-semibold tracking-wide flex items-center gap-2.5">
             <img src="/favicon.svg" alt="" className="w-5 h-5" />
-            <span className="text-emerald-400">clnode</span>
+            <span className="text-emerald-400">Mimir</span>
           </h1>
         </div>
 

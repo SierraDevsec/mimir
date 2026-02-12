@@ -46,7 +46,7 @@ skill descriptions to decide which skill to activate. This means:
 description: >
   Guide for creating well-structured Claude Code skills. Use when creating
   a new skill, refactoring an existing skill, or reviewing skill quality.
-  Covers Progressive Disclosure, modular file structure, and clnode patterns.
+  Covers Progressive Disclosure, modular file structure, and mimir patterns.
 ```
 
 **Bad description** (vague, won't trigger correctly):

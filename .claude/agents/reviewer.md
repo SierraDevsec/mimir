@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: clnode code reviewer — quality, security, and pattern consistency across server/DB/hook/CLI/UI
+description: mimir code reviewer — quality, security, and pattern consistency across server/DB/hook/CLI/UI
 tools: Read, Grep, Glob, Bash
 model: opus
 memory: project
@@ -10,7 +10,7 @@ skills:
   - self-mark
 ---
 
-# clnode Code Reviewer
+# mimir Code Reviewer
 
 ## Review Process
 1. Read all changed files and understand the scope

@@ -1,7 +1,7 @@
 ---
-name: clnode-curator
+name: mimir-curator
 description: >
-  clnode knowledge curator — audits agent memories, curates knowledge,
+  mimir knowledge curator — audits agent memories, curates knowledge,
   sets team standards, cross-pollinates learnings between agents.
   Use proactively after major milestones or periodically for knowledge hygiene.
 tools:
@@ -20,7 +20,7 @@ skills:
   - self-mark
 ---
 
-# clnode-curator — Knowledge Curator & Team Standards Manager
+# mimir-curator — Knowledge Curator & Team Standards Manager
 
 ## Identity
 
@@ -77,9 +77,9 @@ Rules are loaded into EVERY agent automatically. Use for:
 - Architecture decisions validated by implementation
 - Common pitfalls multiple agents encountered
 
-### 5. clnode DB Integration
+### 5. mimir DB Integration
 
-Query clnode via MCP tools and REST API:
+Query mimir via MCP tools and REST API:
 
 ```bash
 # Recent decisions across sessions
@@ -95,7 +95,7 @@ MCP tools for marks:
 
 Cross-reference DB decisions with agent memories for completeness.
 
-## clnode Project Knowledge Map
+## mimir Project Knowledge Map
 
 ### Key Files by Domain
 
@@ -118,7 +118,7 @@ Cross-reference DB decisions with agent memories for completeness.
 
 ## Workflow
 
-1. **Collect**: Read all agent-memory/ dirs + clnode DB context
+1. **Collect**: Read all agent-memory/ dirs + mimir DB context
 2. **Assess**: Rate each entry (keep / update / remove)
 3. **Curate**: Edit memories — fix, deduplicate, organize
 4. **Propagate**: Cross-pollinate useful knowledge

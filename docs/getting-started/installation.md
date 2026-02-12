@@ -21,18 +21,18 @@ nav_order: 1
 
 Ask Claude Code:
 ```
-curl -s https://raw.githubusercontent.com/SierraDevsec/clnode/main/docs/installation.md
+curl -s https://raw.githubusercontent.com/SierraDevsec/mimir/main/docs/installation.md
 ```
 
 ### VSCode Extension
 
-Install [clnode for VSCode](https://marketplace.visualstudio.com/items?itemName=DeeJayL.clnode-vscode) from the Marketplace.
+Install [Mimir for VSCode](https://marketplace.visualstudio.com/items?itemName=DeeJayL.mimir-vscode) from the Marketplace.
 
 ### For Development
 
 ```bash
-git clone https://github.com/SierraDevsec/clnode.git
-cd clnode && pnpm install && pnpm build
+git clone https://github.com/SierraDevsec/mimir.git
+cd mimir && pnpm install && pnpm build
 node dist/cli/index.js start
 node dist/cli/index.js init .
 ```
@@ -43,10 +43,10 @@ node dist/cli/index.js init .
 
 Verify installation:
 ```bash
-npx clnode status
+npx mimir status
 ```
 
 Open the dashboard:
 ```bash
-npx clnode ui
+npx mimir ui
 ```

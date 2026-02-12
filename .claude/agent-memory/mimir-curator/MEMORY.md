@@ -1,11 +1,11 @@
-# clnode-curator Memory
+# mimir-curator Memory
 > Last curated: 2026-02-07 (second audit)
 
 ## Code Patterns
 
 ### Agent Memory Structure
 - Location: `.claude/agent-memory/{agent-name}/MEMORY.md`
-- 5 agents: node-backend, react-frontend, cli-hooks, reviewer, clnode-curator
+- 5 agents: node-backend, react-frontend, cli-hooks, reviewer, mimir-curator
 - Format: markdown with sections -- Code Patterns, Known Gotchas, Cross-domain Dependencies, Recent Context
 
 ### Rules Structure
@@ -18,7 +18,7 @@
 1. CLAUDE.md -- project-wide reference (architecture, schema, commands)
 2. .claude/rules/ -- team-wide conventions (auto-loaded per domain)
 3. .claude/agent-memory/ -- agent-specific accumulated knowledge (loaded on spawn)
-4. clnode DB context_entries -- session-specific context (injected via hooks)
+4. mimir DB context_entries -- session-specific context (injected via hooks)
 
 ### Cross-Pollination Patterns Observed
 - DuckDB BigInt gotcha appears in: node-backend (code pattern), reviewer (verify checklist), CLAUDE.md (notes)
@@ -63,7 +63,7 @@
   - node-backend: test setup schema no longer missing columns (fixed)
   - cli-hooks: init flow updated (no --with-agents, no universalAgents filtering, templates changed)
   - reviewer: test count updated 161->164, pre-existing failures cleared
-- cli-hooks had most drift: referenced removed --with-agents flag, wrong template names (worker.md, clnode-usage.md)
+- cli-hooks had most drift: referenced removed --with-agents flag, wrong template names (worker.md, mimir-usage.md)
 - No new patterns ready for rules promotion yet
 - CLAUDE.md hook events table lists 7 events but code has 11 (missing: SessionEnd, PostContext, TeammateIdle, TaskCompleted) -- needs user-directed update
 - react-frontend SKILL.md was outdated (gray->zinc palette, missing useQuery pattern) -- fixed

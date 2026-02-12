@@ -11,7 +11,7 @@ Real-time dashboard available as a browser app and VSCode sidebar.
 
 ## Web UI
 
-Access at `http://localhost:3100` (or `npx clnode ui`).
+Access at `http://localhost:3100` (or `npx mimir ui`).
 
 | Page | Description |
 |------|-------------|
@@ -35,14 +35,14 @@ The extension provides the same dashboard inside VSCode.
 
 - **Sidebar**: Custom HTML panel with stats grid, navigation, and project selector
 - **Editor Panel**: Full Web UI embedded via iframe
-- **Status Bar**: Shows "clnode: N agents" or "clnode: offline"
+- **Status Bar**: Shows "mimir: N agents" or "mimir: offline"
 - **Auto-Init**: Automatically installs hooks and registers the project when opening a workspace
 
 ### Install
 
-From the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=DeeJayL.clnode-vscode):
+From the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=DeeJayL.mimir-vscode):
 
-1. Search **"clnode for VSCode"** in the Extensions tab
+1. Search **"Mimir for VSCode"** in the Extensions tab
 2. Click **Install**
 3. Reload Window (`Cmd+Shift+P` → "Developer: Reload Window")
 
@@ -55,7 +55,7 @@ VSCode Extension (lightweight client)
 ├── Status Bar — agent count or offline status
 └── Auto-Init — hooks + project registration on workspace open
      ↓ HTTP/WS
-clnode daemon (already running)
+mimir daemon (already running)
 ```
 
-The extension is a pure HTTP client — no embedded server. It connects to the running clnode daemon.
+The extension is a pure HTTP client — no embedded server. It connects to the running mimir daemon.

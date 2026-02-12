@@ -16,7 +16,7 @@
 You call save_observation()
        │
        ▼
-  HTTP POST → clnode daemon → DuckDB INSERT (immediate)
+  HTTP POST → mimir daemon → DuckDB INSERT (immediate)
        │
        │  ... time passes ... Agent B starts ...
        │

@@ -7,7 +7,7 @@ nav_order: 4
 
 # Context Compression
 
-clnode uses a 2-layer compression system to prevent the Leader agent's context from exploding.
+Mimir uses a 2-layer compression system to prevent the Leader agent's context from exploding.
 
 ## The Problem
 

@@ -22,8 +22,8 @@ nav_order: 1
 ## Setup
 
 ```bash
-git clone https://github.com/SierraDevsec/clnode.git
-cd clnode
+git clone https://github.com/SierraDevsec/mimir.git
+cd mimir
 pnpm install
 pnpm build
 ```
@@ -54,7 +54,7 @@ pnpm dev
 - DuckDB `VARCHAR[]` needs literal construction, not bind params
 - `hook.sh` exits 0 even on failure (never blocks Claude Code)
 - `hook.sh` has 3s curl timeout, requires `jq`
-- Server port: env var `CLNODE_PORT` (default 3100)
+- Server port: env var `MIMIR_PORT` (default 3100)
 
 ## VSCode Extension Development
 
@@ -62,7 +62,7 @@ pnpm dev
 cd vscode-extension
 pnpm build              # esbuild → dist/extension.js (CJS)
 pnpm package            # vsce package → .vsix
-code --install-extension clnode-vscode-*.vsix --force
+code --install-extension mimir-vscode-*.vsix --force
 ```
 
 After Web UI changes: `pnpm build` (root) → restart daemon → rebuild extension → install → reload VSCode.

@@ -10,13 +10,13 @@ export async function checkDaemon(baseUrl: string): Promise<boolean> {
   }
 }
 
-export async function isClnodeInstalled(): Promise<boolean> {
+export async function isMimirInstalled(): Promise<boolean> {
   try {
-    await execAsync("clnode --version");
+    await execAsync("mimir --version");
     return true;
   } catch {
     try {
-      await execAsync("npx clnode --version");
+      await execAsync("npx mimir --version");
       return true;
     } catch {
       return false;
@@ -24,9 +24,9 @@ export async function isClnodeInstalled(): Promise<boolean> {
   }
 }
 
-export async function installClnode(): Promise<boolean> {
+export async function installMimir(): Promise<boolean> {
   const action = await vscode.window.showWarningMessage(
-    "clnode is not installed. Install it now?",
+    "Mimir is not installed. Install it now?",
     "Install (npm -g)",
     "Dismiss"
   );
@@ -34,15 +34,15 @@ export async function installClnode(): Promise<boolean> {
   if (action !== "Install (npm -g)") return false;
 
   return vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: "Installing clnode..." },
+    { location: vscode.ProgressLocation.Notification, title: "Installing Mimir..." },
     async () => {
       try {
-        await execAsync("npm install -g clnode", 60000);
-        vscode.window.showInformationMessage("clnode installed successfully.");
+        await execAsync("npm install -g mimir", 60000);
+        vscode.window.showInformationMessage("Mimir installed successfully.");
         return true;
       } catch (e) {
         vscode.window.showErrorMessage(
-          `Failed to install clnode: ${e}. Try manually: npm i -g clnode`
+          `Failed to install Mimir: ${e}. Try manually: npm i -g mimir`
         );
         return false;
       }
@@ -51,7 +51,7 @@ export async function installClnode(): Promise<boolean> {
 }
 
 export async function startDaemon(): Promise<boolean> {
-  const commands = ["npx clnode start", "clnode start"];
+  const commands = ["npx mimir start", "mimir start"];
   for (const cmd of commands) {
     try {
       await execAsync(cmd);
@@ -61,12 +61,12 @@ export async function startDaemon(): Promise<boolean> {
       continue;
     }
   }
-  vscode.window.showErrorMessage("Failed to start clnode daemon.");
+  vscode.window.showErrorMessage("Failed to start Mimir daemon.");
   return false;
 }
 
 export async function stopDaemon(): Promise<void> {
-  const commands = ["npx clnode stop", "clnode stop"];
+  const commands = ["npx mimir stop", "mimir stop"];
   for (const cmd of commands) {
     try {
       await execAsync(cmd);
@@ -75,7 +75,7 @@ export async function stopDaemon(): Promise<void> {
       continue;
     }
   }
-  vscode.window.showErrorMessage("Failed to stop clnode daemon.");
+  vscode.window.showErrorMessage("Failed to stop Mimir daemon.");
 }
 
 /**
@@ -85,10 +85,10 @@ export async function ensureDaemon(baseUrl: string, autoStart: boolean): Promise
   // 1. Already running?
   if (await checkDaemon(baseUrl)) return true;
 
-  // 2. clnode installed?
-  const installed = await isClnodeInstalled();
+  // 2. mimir installed?
+  const installed = await isMimirInstalled();
   if (!installed) {
-    const ok = await installClnode();
+    const ok = await installMimir();
     if (!ok) return false;
   }
 
@@ -98,7 +98,7 @@ export async function ensureDaemon(baseUrl: string, autoStart: boolean): Promise
   }
 
   const action = await vscode.window.showWarningMessage(
-    "clnode daemon is not running.",
+    "Mimir daemon is not running.",
     "Start Daemon",
     "Dismiss"
   );

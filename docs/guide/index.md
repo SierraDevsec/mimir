@@ -7,4 +7,4 @@ has_children: true
 
 # Guide
 
-Learn how clnode works and how to use its features.
+Learn how mimir works and how to use its features.

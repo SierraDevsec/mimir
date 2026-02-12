@@ -7,19 +7,19 @@ nav_order: 2
 
 # Quick Start
 
-Run your first multi-agent swarm session after installing clnode.
+Run your first multi-agent swarm session after installing mimir.
 
 ## 1. Start the Daemon
 
 ```bash
-npx clnode start
+npx mimir start
 ```
 
 The daemon runs on `http://localhost:3100` by default.
 
 ## 2. Open Claude Code
 
-Start a new Claude Code session in your project directory. The hooks are already installed from `clnode init`.
+Start a new Claude Code session in your project directory. The hooks are already installed from `mimir init`.
 
 ## 3. Give a Multi-Agent Task
 
@@ -31,22 +31,22 @@ Use a backend agent for implementation and a reviewer agent to check the code.
 ```
 
 Claude Code will:
-1. Spawn a backend agent → clnode records it via `SubagentStart` hook
-2. Agent completes work → clnode saves summary via `SubagentStop` hook
-3. Spawn a reviewer agent → clnode injects backend agent's summary automatically
+1. Spawn a backend agent → mimir records it via `SubagentStart` hook
+2. Agent completes work → mimir saves summary via `SubagentStop` hook
+3. Spawn a reviewer agent → mimir injects backend agent's summary automatically
 4. Reviewer sees what was built without the Leader relaying it
 
 ## 4. Monitor in Web UI
 
 ```bash
-npx clnode ui
+npx mimir ui
 ```
 
 See active agents, context entries, and task status in real-time.
 
 ## 5. Create Custom Agents
 
-Use the `/clnode-agents` skill in Claude Code to:
+Use the `/mimir-agents` skill in Claude Code to:
 - Discover installed agents, skills, and rules
 - Create new agents with proper frontmatter
 

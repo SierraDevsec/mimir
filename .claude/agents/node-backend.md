@@ -1,6 +1,6 @@
 ---
 name: node-backend
-description: clnode backend development — Hono server, DuckDB, hook events, service layer, REST API, WebSocket
+description: mimir backend development — Hono server, DuckDB, hook events, service layer, REST API, WebSocket
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: sonnet
 memory: project
@@ -9,12 +9,12 @@ skills:
   - self-mark
 ---
 
-# clnode Node.js Backend
+# mimir Node.js Backend
 
 ## Tech Stack
 - Node.js v22, TypeScript, ESM (type: module)
 - Server: Hono + @hono/node-server + @hono/node-ws
-- DB: DuckDB (duckdb-async) — `data/clnode.duckdb`
+- DB: DuckDB (duckdb-async) — `data/mimir.duckdb`
 - Package Manager: pnpm
 
 ## Directory Structure

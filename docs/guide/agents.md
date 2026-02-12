@@ -7,18 +7,18 @@ nav_order: 2
 
 # Agent Management
 
-clnode installs two default agents and provides the `/clnode-agents` skill for discovery and custom agent creation.
+Mimir installs two default agents and provides the `/mimir-agents` skill for discovery and custom agent creation.
 
 ## Default Agents
 
 | Agent | Model | Role |
 |-------|-------|------|
-| **clnode-reviewer** | opus | Code review — quality, security, pattern consistency |
-| **clnode-curator** | opus | Knowledge curation — audits memories, cross-pollinates learnings |
+| **mimir-reviewer** | opus | Code review — quality, security, pattern consistency |
+| **mimir-curator** | opus | Knowledge curation — audits memories, cross-pollinates learnings |
 
-## /clnode-agents Skill
+## /mimir-agents Skill
 
-Run `/clnode-agents` in Claude Code to:
+Run `/mimir-agents` in Claude Code to:
 
 ### Phase 1: Discovery
 

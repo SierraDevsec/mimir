@@ -11,21 +11,21 @@
 ## Install
 
 ```bash
-npx clnode init .
+npx mimir init .
 ```
 
 This installs:
 - **Hooks** in `.claude/settings.local.json`
-- **Agents**: `clnode-reviewer` (code review) + `clnode-curator` (knowledge curation)
-- **Skills**: `compress-output`, `compress-review`, `clnode-agents`
+- **Agents**: `mimir-reviewer` (code review) + `mimir-curator` (knowledge curation)
+- **Skills**: `compress-output`, `compress-review`, `mimir-agents`
 - **Rules**: `team.md` (swarm workflow)
 - **Agent Memory**: Seed `MEMORY.md` files for agents
 
 ### For Development
 
 ```bash
-git clone https://github.com/SierraDevsec/clnode.git
-cd clnode && pnpm install && pnpm build
+git clone https://github.com/SierraDevsec/mimir.git
+cd mimir && pnpm install && pnpm build
 node dist/cli/index.js start
 ```
 
@@ -35,10 +35,10 @@ node dist/cli/index.js start
 
 Verify installation:
 ```bash
-npx clnode status
+npx mimir status
 ```
 
 Open the dashboard:
 ```bash
-npx clnode ui
+npx mimir ui
 ```

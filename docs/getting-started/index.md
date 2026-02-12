@@ -7,4 +7,4 @@ has_children: true
 
 # Getting Started
 
-Install clnode and run your first multi-agent session.
+Install mimir and run your first multi-agent session.

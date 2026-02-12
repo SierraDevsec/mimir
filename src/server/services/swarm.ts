@@ -83,7 +83,7 @@ export async function startSwarm(config: SwarmConfig): Promise<SwarmSession> {
       `- After reporting, use read_messages to check for follow-up instructions`,
       `- Always respond to incoming messages promptly`,
       ``,
-      `IMPORTANT: Use mcp__clnode-messaging__send_message for ALL communication.`,
+      `IMPORTANT: Use mcp__mimir-messaging__send_message for ALL communication.`,
       `Plain text responses are NOT visible to other agents.`,
     ];
     if (initialTask) {
@@ -244,7 +244,7 @@ async function registerAgentFiles(
   // Ensure rules directory exists
   fs.mkdirSync(rulesDir, { recursive: true });
 
-  // Setup .mcp.json with clnode-messaging MCP server
+  // Setup .mcp.json with mimir-messaging MCP server
   const mcpConfigPath = path.join(projectPath, ".mcp.json");
   const mcpServerPath = new URL("../../../src/mcp/server.ts", import.meta.url).pathname;
 
@@ -258,10 +258,10 @@ async function registerAgentFiles(
   }
 
   if (!mcpConfig.mcpServers) mcpConfig.mcpServers = {};
-  mcpConfig.mcpServers["clnode-messaging"] = {
+  mcpConfig.mcpServers["mimir-messaging"] = {
     command: "npx",
     args: ["tsx", mcpServerPath],
-    env: { CLNODE_PROJECT_ID: projectId },
+    env: { MIMIR_PROJECT_ID: projectId },
   };
 
   fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
@@ -278,10 +278,10 @@ async function registerAgentFiles(
   }
 
   const mcpPermissions = [
-    "mcp__clnode-messaging__send_message",
-    "mcp__clnode-messaging__read_messages",
-    "mcp__clnode-messaging__list_agents",
-    "mcp__clnode-messaging__register_agent",
+    "mcp__mimir-messaging__send_message",
+    "mcp__mimir-messaging__read_messages",
+    "mcp__mimir-messaging__list_agents",
+    "mcp__mimir-messaging__register_agent",
   ];
 
   const perms = (settings.permissions ?? {}) as { allow?: string[] };
@@ -336,7 +336,7 @@ async function registerAgentFiles(
     ``,
     `## Communication`,
     ``,
-    `- Use \`mcp__clnode-messaging__send_message\` for all inter-agent messaging`,
+    `- Use \`mcp__mimir-messaging__send_message\` for all inter-agent messaging`,
     `- Report results to orchestrator when task is complete`,
     `- Only message other agents when coordination is needed`,
     ``,

@@ -4,9 +4,9 @@ import * as path from "node:path";
 import { exec } from "node:child_process";
 
 /**
- * Auto-initialize clnode hooks for the current workspace.
+ * Auto-initialize mimir hooks for the current workspace.
  * Checks if .claude/settings.local.json has hooks configured.
- * If not, runs `clnode init` or writes hooks config directly.
+ * If not, runs `mimir init` or writes hooks config directly.
  */
 export async function autoInitWorkspace(port: number): Promise<void> {
   const folders = vscode.workspace.workspaceFolders;
@@ -32,11 +32,11 @@ export async function autoInitWorkspace(port: number): Promise<void> {
 
     if (needsHooks) {
       const hooksOnly = !needsTemplates;
-      const initOk = await tryClnodeInit(workspacePath, port, hooksOnly);
+      const initOk = await tryMimirInit(workspacePath, port, hooksOnly);
       if (initOk) {
         const msg = hooksOnly
-          ? `clnode: hooks installed for "${folder.name}". Restart Claude CLI to activate.`
-          : `clnode: hooks + agents/skills installed for "${folder.name}". Restart Claude CLI to activate.`;
+          ? `Mimir: hooks installed for "${folder.name}". Restart Claude CLI to activate.`
+          : `Mimir: hooks + agents/skills installed for "${folder.name}". Restart Claude CLI to activate.`;
         vscode.window.showInformationMessage(msg);
         continue;
       }
@@ -48,14 +48,14 @@ export async function autoInitWorkspace(port: number): Promise<void> {
       writeHooksConfig(workspacePath, hookScript, port);
       await registerProject(workspacePath, port);
       vscode.window.showInformationMessage(
-        `clnode: hooks installed for "${folder.name}". Restart Claude CLI to activate.`
+        `Mimir: hooks installed for "${folder.name}". Restart Claude CLI to activate.`
       );
     } else if (needsTemplates) {
       // Hooks exist but no agents → install templates only
-      const ok = await tryClnodeInit(workspacePath, port, false);
+      const ok = await tryMimirInit(workspacePath, port, false);
       if (ok) {
         vscode.window.showInformationMessage(
-          `clnode: agents/skills templates installed for "${folder.name}".`
+          `Mimir: agents/skills templates installed for "${folder.name}".`
         );
       }
     }
@@ -83,11 +83,11 @@ function hasAgents(workspacePath: string): boolean {
   }
 }
 
-async function tryClnodeInit(workspacePath: string, port: number, hooksOnly: boolean): Promise<boolean> {
+async function tryMimirInit(workspacePath: string, port: number, hooksOnly: boolean): Promise<boolean> {
   const flag = hooksOnly ? " --hooks-only" : "";
   const commands = [
-    `npx clnode init "${workspacePath}"${flag} -p ${port}`,
-    `clnode init "${workspacePath}"${flag} -p ${port}`,
+    `npx mimir init "${workspacePath}"${flag} -p ${port}`,
+    `mimir init "${workspacePath}"${flag} -p ${port}`,
   ];
 
   for (const cmd of commands) {
@@ -105,23 +105,23 @@ function findHookScript(): string | null {
   // Common locations for hook.sh
   const candidates = [
     // Global npm install
-    ...getGlobalNodeModulesPaths().map((p) => path.join(p, "clnode", "src", "hooks", "hook.sh")),
+    ...getGlobalNodeModulesPaths().map((p) => path.join(p, "mimir", "src", "hooks", "hook.sh")),
     // npx cache / local
-    path.join(process.env.HOME ?? "", ".local", "share", "clnode", "hook.sh"),
+    path.join(process.env.HOME ?? "", ".local", "share", "mimir", "hook.sh"),
   ];
 
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
   }
 
-  // Try `which clnode` to find the install path
+  // Try `which mimir` to find the install path
   try {
     const { execSync } = require("node:child_process");
-    const clnodeBin = execSync("which clnode", { encoding: "utf-8" }).trim();
-    if (clnodeBin) {
-      // clnode bin is at <prefix>/bin/clnode, hook.sh is at <prefix>/lib/node_modules/clnode/src/hooks/hook.sh
-      const prefix = path.resolve(path.dirname(clnodeBin), "..");
-      const hookPath = path.join(prefix, "lib", "node_modules", "clnode", "src", "hooks", "hook.sh");
+    const mimirBin = execSync("which mimir", { encoding: "utf-8" }).trim();
+    if (mimirBin) {
+      // mimir bin is at <prefix>/bin/mimir, hook.sh is at <prefix>/lib/node_modules/mimir/src/hooks/hook.sh
+      const prefix = path.resolve(path.dirname(mimirBin), "..");
+      const hookPath = path.join(prefix, "lib", "node_modules", "mimir", "src", "hooks", "hook.sh");
       if (fs.existsSync(hookPath)) return hookPath;
     }
   } catch { /* ignore */ }
@@ -143,7 +143,7 @@ function writeHooksConfig(workspacePath: string, hookScript: string, port: numbe
   const claudeDir = path.join(workspacePath, ".claude");
   fs.mkdirSync(claudeDir, { recursive: true });
 
-  const hookCommand = port === 3100 ? hookScript : `CLNODE_PORT=${port} ${hookScript}`;
+  const hookCommand = port === 3100 ? hookScript : `MIMIR_PORT=${port} ${hookScript}`;
 
   const events = [
     "SessionStart", "SessionEnd", "SubagentStart", "SubagentStop",

@@ -10,12 +10,12 @@ import { autoInitWorkspace } from "./auto-init";
 import { TerminalManager } from "./terminal-manager";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const config = vscode.workspace.getConfiguration("clnode");
+  const config = vscode.workspace.getConfiguration("mimir");
   const port = config.get<number>("port", 3100);
   const autoStart = config.get<boolean>("autoStartDaemon", false);
   const pollingInterval = config.get<number>("pollingInterval", 5000);
 
-  const getPort = () => vscode.workspace.getConfiguration("clnode").get<number>("port", 3100);
+  const getPort = () => vscode.workspace.getConfiguration("mimir").get<number>("port", 3100);
   const baseUrl = `http://localhost:${port}`;
   const api = new ApiClient(baseUrl);
 
@@ -36,9 +36,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   sidebarProvider.onCommand((command, args) => {
     if (command === "navigate" && args?.page === "orchestration") {
-      openWebviewPanel(getPort(), "/swarm", "clnode Orchestration", getProjectId());
+      openWebviewPanel(getPort(), "/swarm", "Mimir Orchestration", getProjectId());
     } else if (command === "navigate" && args?.page === "marks") {
-      openWebviewPanel(getPort(), "/observations", "clnode Marks", getProjectId());
+      openWebviewPanel(getPort(), "/observations", "Mimir Marks", getProjectId());
     }
   });
 
@@ -87,33 +87,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // Commands
   context.subscriptions.push(
-    vscode.commands.registerCommand("clnode.openTasks", () =>
-      openWebviewPanel(getPort(), "/tasks", "clnode Tasks", getProjectId())),
-    vscode.commands.registerCommand("clnode.openAgents", () =>
-      openWebviewPanel(getPort(), "/agents", "clnode Agents", getProjectId())),
-    vscode.commands.registerCommand("clnode.openClaudeUsage", async () => {
+    vscode.commands.registerCommand("mimir.openTasks", () =>
+      openWebviewPanel(getPort(), "/tasks", "Mimir Tasks", getProjectId())),
+    vscode.commands.registerCommand("mimir.openAgents", () =>
+      openWebviewPanel(getPort(), "/agents", "Mimir Agents", getProjectId())),
+    vscode.commands.registerCommand("mimir.openClaudeUsage", async () => {
       openWebviewPanel(getPort(), "/claude-usage", "Claude Account & Usage", getProjectId());
       refreshClaudeUsageData();
     }),
-    vscode.commands.registerCommand("clnode.openOrchestration", () =>
-      openWebviewPanel(getPort(), "/swarm", "clnode Orchestration", getProjectId())),
-    vscode.commands.registerCommand("clnode.openMarks", () =>
-      openWebviewPanel(getPort(), "/observations", "clnode Marks", getProjectId())),
+    vscode.commands.registerCommand("mimir.openOrchestration", () =>
+      openWebviewPanel(getPort(), "/swarm", "Mimir Orchestration", getProjectId())),
+    vscode.commands.registerCommand("mimir.openMarks", () =>
+      openWebviewPanel(getPort(), "/observations", "Mimir Marks", getProjectId())),
 
     // Terminal commands
-    vscode.commands.registerCommand("clnode.launchClaude", () =>
+    vscode.commands.registerCommand("mimir.launchClaude", () =>
       terminalManager.launchClaude(getProjectId(), getProjectPath(), getPort())),
-    vscode.commands.registerCommand("clnode.launchSwarm", () =>
+    vscode.commands.registerCommand("mimir.launchSwarm", () =>
       terminalManager.launchSwarm(getProjectId(), getProjectPath())),
 
     // Daemon commands
-    vscode.commands.registerCommand("clnode.startDaemon", async () => {
+    vscode.commands.registerCommand("mimir.startDaemon", async () => {
       const ok = await startDaemon();
-      if (ok) vscode.window.showInformationMessage("clnode daemon started.");
+      if (ok) vscode.window.showInformationMessage("Mimir daemon started.");
     }),
-    vscode.commands.registerCommand("clnode.stopDaemon", async () => {
+    vscode.commands.registerCommand("mimir.stopDaemon", async () => {
       await stopDaemon();
-      vscode.window.showInformationMessage("clnode daemon stopped.");
+      vscode.window.showInformationMessage("Mimir daemon stopped.");
     }),
   );
 

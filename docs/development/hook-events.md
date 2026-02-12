@@ -7,7 +7,7 @@ nav_order: 3
 
 # Hook Events
 
-clnode processes Claude Code lifecycle events via `hook.sh`, a shell script that reads JSON from stdin, POSTs to the daemon, and outputs the response to stdout.
+Mimir processes Claude Code lifecycle events via `hook.sh`, a shell script that reads JSON from stdin, POSTs to the daemon, and outputs the response to stdout.
 
 ## Event Flow
 
@@ -78,13 +78,13 @@ Claude Code → stdin (JSON) → hook.sh → curl POST → daemon → response �
 **Response**:
 ```json
 {
-  "additionalContext": "[clnode project context]\n\n## Active Agents\n..."
+  "additionalContext": "[mimir project context]\n\n## Active Agents\n..."
 }
 ```
 
 ### RegisterProject
 
-**Trigger**: `clnode init` command.
+**Trigger**: `mimir init` command.
 
 **Action**: Register project in DB with name and path.
 

@@ -6,29 +6,29 @@ import path from "node:path";
 
 const program = new Command();
 
-const CLNODE_PORT = parseInt(process.env.CLNODE_PORT ?? "3100", 10);
-const CLNODE_URL = `http://localhost:${CLNODE_PORT}`;
+const MIMIR_PORT = parseInt(process.env.MIMIR_PORT ?? "3100", 10);
+const MIMIR_URL = `http://localhost:${MIMIR_PORT}`;
 const DATA_DIR = path.resolve(
   import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname),
   "../../data"
 );
-const PID_FILE = path.join(DATA_DIR, "clnode.pid");
-const LOG_FILE = path.join(DATA_DIR, "clnode.log");
+const PID_FILE = path.join(DATA_DIR, "mimir.pid");
+const LOG_FILE = path.join(DATA_DIR, "mimir.log");
 
 program
-  .name("clnode")
+  .name("mimir")
   .description("Claude Code hook monitoring daemon")
   .version("0.1.6"); // TODO: read from package.json
 
-// clnode start
+// mimir start
 program
   .command("start")
-  .description("Start the clnode daemon")
-  .option("-p, --port <port>", "Port number", String(CLNODE_PORT))
+  .description("Start the mimir daemon")
+  .option("-p, --port <port>", "Port number", String(MIMIR_PORT))
   .action(async (opts) => {
     // 이미 실행 중인지 확인 (PID file)
     if (isRunning()) {
-      console.log(`[clnode] Already running (PID: ${readPid()})`);
+      console.log(`[mimir] Already running (PID: ${readPid()})`);
       return;
     }
 
@@ -40,7 +40,7 @@ program
         for (const p of pids) {
           try {
             process.kill(parseInt(p, 10), "SIGTERM");
-            console.log(`[clnode] Killed orphan process on port ${opts.port} (PID: ${p})`);
+            console.log(`[mimir] Killed orphan process on port ${opts.port} (PID: ${p})`);
           } catch { /* already dead */ }
         }
         // Wait for port to free up
@@ -60,7 +60,7 @@ program
       ? serverEntry
       : serverEntry;
 
-    const env = { ...process.env, CLNODE_PORT: opts.port };
+    const env = { ...process.env, MIMIR_PORT: opts.port };
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const logFd = fs.openSync(LOG_FILE, "a");
     const child = spawn(cmd, [actualEntry], {
@@ -76,17 +76,17 @@ program
       const dataDir = path.dirname(PID_FILE);
       fs.mkdirSync(dataDir, { recursive: true });
       fs.writeFileSync(PID_FILE, String(child.pid));
-      console.log(`[clnode] Daemon started (PID: ${child.pid}, Port: ${opts.port})`);
+      console.log(`[mimir] Daemon started (PID: ${child.pid}, Port: ${opts.port})`);
     } else {
-      console.error("[clnode] Failed to start daemon");
+      console.error("[mimir] Failed to start daemon");
       process.exit(1);
     }
   });
 
-// clnode stop
+// mimir stop
 program
   .command("stop")
-  .description("Stop the clnode daemon")
+  .description("Stop the mimir daemon")
   .action(() => {
     let killed = false;
 
@@ -95,10 +95,10 @@ program
     if (pid) {
       try {
         process.kill(pid, "SIGTERM");
-        console.log(`[clnode] Daemon stopped (PID: ${pid})`);
+        console.log(`[mimir] Daemon stopped (PID: ${pid})`);
         killed = true;
       } catch {
-        console.log(`[clnode] PID ${pid} not running`);
+        console.log(`[mimir] PID ${pid} not running`);
       }
       try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
     }
@@ -106,14 +106,14 @@ program
     // 2) Fallback: kill whatever is on the port (handles stale/orphan processes)
     if (!killed) {
       try {
-        const port = process.env.CLNODE_PORT || "3100";
+        const port = process.env.MIMIR_PORT || "3100";
         const lsofOutput = execSync(`lsof -ti :${port}`, { encoding: "utf-8" }).trim();
         if (lsofOutput) {
           const pids = lsofOutput.split("\n").map((p: string) => p.trim()).filter(Boolean);
           for (const p of pids) {
             try {
               process.kill(parseInt(p, 10), "SIGTERM");
-              console.log(`[clnode] Killed orphan process on port ${port} (PID: ${p})`);
+              console.log(`[mimir] Killed orphan process on port ${port} (PID: ${p})`);
               killed = true;
             } catch { /* already dead */ }
           }
@@ -124,51 +124,51 @@ program
     }
 
     if (!killed) {
-      console.log("[clnode] No running daemon found");
+      console.log("[mimir] No running daemon found");
     }
   });
 
-// clnode status
+// mimir status
 program
   .command("status")
   .description("Show active sessions and agents")
   .action(async () => {
     try {
-      const res = await fetch(`${CLNODE_URL}/api/health`);
+      const res = await fetch(`${MIMIR_URL}/api/health`);
       const health = await res.json() as { status: string; uptime: number };
-      console.log(`[clnode] Server: ${health.status} (uptime: ${Math.round(health.uptime)}s)`);
+      console.log(`[mimir] Server: ${health.status} (uptime: ${Math.round(health.uptime)}s)`);
 
-      const sessionsRes = await fetch(`${CLNODE_URL}/api/sessions?active=true`);
+      const sessionsRes = await fetch(`${MIMIR_URL}/api/sessions?active=true`);
       const sessions = await sessionsRes.json() as Array<Record<string, unknown>>;
-      console.log(`[clnode] Active sessions: ${sessions.length}`);
+      console.log(`[mimir] Active sessions: ${sessions.length}`);
       for (const s of sessions) {
         console.log(`  - ${s.id} (project: ${s.project_id ?? "none"})`);
       }
 
-      const agentsRes = await fetch(`${CLNODE_URL}/api/agents?active=true`);
+      const agentsRes = await fetch(`${MIMIR_URL}/api/agents?active=true`);
       const agents = await agentsRes.json() as Array<Record<string, unknown>>;
-      console.log(`[clnode] Active agents: ${agents.length}`);
+      console.log(`[mimir] Active agents: ${agents.length}`);
       for (const a of agents) {
         console.log(`  - ${a.id} [${a.agent_name}] (${a.agent_type ?? "unknown"})`);
       }
     } catch {
-      console.log("[clnode] Daemon is not running");
+      console.log("[mimir] Daemon is not running");
       const pid = readPid();
       if (pid) console.log(`  PID file exists (${pid}), but server unreachable`);
     }
   });
 
-// clnode init [path]
+// mimir init [path]
 program
   .command("init [targetPath]")
   .description("Install lifecycle hooks and templates in the target project")
-  .option("-p, --port <port>", "Daemon port (default: 3100)", String(CLNODE_PORT))
+  .option("-p, --port <port>", "Daemon port (default: 3100)", String(MIMIR_PORT))
   .option("--hooks-only", "Install hooks only, skip all templates")
   .action(async (targetPath: string | undefined, opts: { port?: string; hooksOnly?: boolean }) => {
     const target = targetPath ? path.resolve(targetPath) : process.cwd();
     const projectName = path.basename(target);
     const projectId = projectName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-    const port = opts.port ?? String(CLNODE_PORT);
+    const port = opts.port ?? String(MIMIR_PORT);
     const portUrl = `http://localhost:${port}`;
 
     const baseDir = import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname);
@@ -182,7 +182,7 @@ program
     // Build hook command with port env var if non-default
     const hookCommand = port === "3100"
       ? hookScript
-      : `CLNODE_PORT=${port} ${hookScript}`;
+      : `MIMIR_PORT=${port} ${hookScript}`;
 
     const templatePath = path.resolve(baseDir, "../../templates/hooks-config.json");
     const templateRaw = fs.readFileSync(templatePath, "utf-8");
@@ -206,14 +206,14 @@ program
         command: localStatusline,
         padding: 0,
       };
-      console.log(`[clnode] statusline.sh copied to ${localStatusline}`);
+      console.log(`[mimir] statusline.sh copied to ${localStatusline}`);
     }
 
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-    console.log(`[clnode] Hooks installed to ${settingsPath}`);
-    console.log(`[clnode] hook.sh path: ${hookScript}`);
+    console.log(`[mimir] Hooks installed to ${settingsPath}`);
+    console.log(`[mimir] hook.sh path: ${hookScript}`);
 
-    // Setup .mcp.json with clnode-messaging MCP server
+    // Setup .mcp.json with mimir-messaging MCP server
     const mcpConfigPath = path.join(target, ".mcp.json");
     const mcpServerPath = path.resolve(baseDir, "../../src/mcp/server.ts");
 
@@ -227,21 +227,21 @@ program
     }
 
     if (!mcpConfig.mcpServers) mcpConfig.mcpServers = {};
-    mcpConfig.mcpServers["clnode-messaging"] = {
+    mcpConfig.mcpServers["mimir-messaging"] = {
       command: "npx",
       args: ["tsx", mcpServerPath],
-      env: { CLNODE_PROJECT_ID: projectId },
+      env: { MIMIR_PROJECT_ID: projectId },
     };
 
     fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
-    console.log(`[clnode] MCP server configured: ${mcpConfigPath}`);
+    console.log(`[mimir] MCP server configured: ${mcpConfigPath}`);
 
     // Add MCP tool permissions to settings
     const mcpPermissions = [
-      "mcp__clnode-messaging__send_message",
-      "mcp__clnode-messaging__read_messages",
-      "mcp__clnode-messaging__list_agents",
-      "mcp__clnode-messaging__register_agent",
+      "mcp__mimir-messaging__send_message",
+      "mcp__mimir-messaging__read_messages",
+      "mcp__mimir-messaging__list_agents",
+      "mcp__mimir-messaging__register_agent",
     ];
     const perms = (settings.permissions ?? {}) as { allow?: string[] };
     const existingPerms = new Set(perms.allow ?? []);
@@ -261,7 +261,7 @@ program
     settings.teammateMode = "tmux";
 
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-    console.log(`[clnode] MCP permissions added to settings`);
+    console.log(`[mimir] MCP permissions added to settings`);
 
     // Copy skill/agent/rule templates by default (skip with --hooks-only)
     if (!opts.hooksOnly) {
@@ -284,12 +284,12 @@ program
             if (!fs.existsSync(destFile)) {
               fs.mkdirSync(destDir, { recursive: true });
               fs.copyFileSync(skillFile, destFile);
-              console.log(`[clnode] Skill template copied: ${dir}/SKILL.md`);
+              console.log(`[mimir] Skill template copied: ${dir}/SKILL.md`);
               skillCount++;
             }
           }
         }
-        console.log(`[clnode] ${skillCount} skill templates installed to ${skillsTargetDir}`);
+        console.log(`[mimir] ${skillCount} skill templates installed to ${skillsTargetDir}`);
       }
 
       // Agents: copy all templates
@@ -308,12 +308,12 @@ program
               content = content.replaceAll("HOOK_SCRIPT_PATH", hookCommand);
             }
             fs.writeFileSync(dest, content);
-            console.log(`[clnode] Agent template copied: ${file}`);
+            console.log(`[mimir] Agent template copied: ${file}`);
             agentCount++;
           }
         }
         if (agentCount > 0) {
-          console.log(`[clnode] ${agentCount} agent templates installed to ${agentsTargetDir}`);
+          console.log(`[mimir] ${agentCount} agent templates installed to ${agentsTargetDir}`);
         }
       }
 
@@ -328,12 +328,12 @@ program
           const dest = path.join(rulesTargetDir, file);
           if (!fs.existsSync(dest)) {
             fs.copyFileSync(path.join(rulesSourceDir, file), dest);
-            console.log(`[clnode] Rule template copied: ${file}`);
+            console.log(`[mimir] Rule template copied: ${file}`);
             rulesCount++;
           }
         }
         if (rulesCount > 0) {
-          console.log(`[clnode] ${rulesCount} rule templates installed to ${rulesTargetDir}`);
+          console.log(`[mimir] ${rulesCount} rule templates installed to ${rulesTargetDir}`);
         }
       }
 
@@ -362,7 +362,7 @@ program
           }
         }
         if (memoryCount > 0) {
-          console.log(`[clnode] ${memoryCount} agent memory seeds installed to ${memoryTargetDir}`);
+          console.log(`[mimir] ${memoryCount} agent memory seeds installed to ${memoryTargetDir}`);
         }
       }
     }
@@ -373,12 +373,12 @@ program
       await fetch(`${portUrl}/api/health`);
       daemonRunning = true;
     } catch {
-      console.log(`[clnode] Daemon not running on port ${port}, starting...`);
+      console.log(`[mimir] Daemon not running on port ${port}, starting...`);
       // Start daemon with specified port
       const serverEntry = path.resolve(baseDir, "../server/index.js");
       const isTs = serverEntry.endsWith(".ts");
       const cmd = isTs ? "tsx" : "node";
-      const env = { ...process.env, CLNODE_PORT: port };
+      const env = { ...process.env, MIMIR_PORT: port };
       fs.mkdirSync(DATA_DIR, { recursive: true });
       const logFd = fs.openSync(LOG_FILE, "a");
       const child = spawn(cmd, [serverEntry], {
@@ -390,7 +390,7 @@ program
       child.unref();
       if (child.pid) {
         fs.writeFileSync(PID_FILE, String(child.pid));
-        console.log(`[clnode] Daemon started (PID: ${child.pid}, Port: ${port})`);
+        console.log(`[mimir] Daemon started (PID: ${child.pid}, Port: ${port})`);
         daemonRunning = true;
         // Wait a bit for daemon to initialize
         await new Promise(r => setTimeout(r, 1000));
@@ -408,7 +408,7 @@ program
             body: JSON.stringify({ project_id: projectId, project_name: projectName, project_path: target }),
           });
           if (res.ok) {
-            console.log(`[clnode] Project registered: ${projectId} (${target})`);
+            console.log(`[mimir] Project registered: ${projectId} (${target})`);
             registered = true;
             break;
           }
@@ -419,19 +419,19 @@ program
         }
       }
       if (!registered) {
-        console.log(`[clnode] Could not register project — will be registered on first hook event`);
+        console.log(`[mimir] Could not register project — will be registered on first hook event`);
       }
     }
 
-    console.log(`\n[clnode] Setup complete!`);
-    console.log(`[clnode] Restart your Claude Code session to activate hooks.`);
+    console.log(`\n[mimir] Setup complete!`);
+    console.log(`[mimir] Restart your Claude Code session to activate hooks.`);
     if (port !== "3100") {
-      console.log(`[clnode] Using custom port: ${port}`);
+      console.log(`[mimir] Using custom port: ${port}`);
     }
-    console.log(`[clnode] Tip: To create custom agents, use /clnode-agents skill in Claude Code`);
+    console.log(`[mimir] Tip: To create custom agents, use /mimir-agents skill in Claude Code`);
   });
 
-// clnode logs
+// mimir logs
 program
   .command("logs")
   .description("Tail daemon logs")
@@ -439,7 +439,7 @@ program
   .option("-f, --follow", "Follow log output")
   .action((opts) => {
     if (!fs.existsSync(LOG_FILE)) {
-      console.log("[clnode] No log file found. Start the daemon first.");
+      console.log("[mimir] No log file found. Start the daemon first.");
       return;
     }
 
@@ -449,17 +449,17 @@ program
 
     const tail = spawn("tail", args, { stdio: "inherit" });
     tail.on("error", () => {
-      console.error("[clnode] Failed to run tail command");
+      console.error("[mimir] Failed to run tail command");
     });
   });
 
-// clnode ui
+// mimir ui
 program
   .command("ui")
   .description("Open Web UI in browser")
   .action(() => {
-    const url = CLNODE_URL;
-    console.log(`[clnode] Opening ${url} ...`);
+    const url = MIMIR_URL;
+    console.log(`[mimir] Opening ${url} ...`);
     try {
       if (process.platform === "darwin") {
         execSync(`open ${url}`);
@@ -469,11 +469,11 @@ program
         execSync(`start ${url}`);
       }
     } catch {
-      console.log(`[clnode] Could not open browser. Visit: ${url}`);
+      console.log(`[mimir] Could not open browser. Visit: ${url}`);
     }
   });
 
-// clnode swarm
+// mimir swarm
 program
   .command("swarm")
   .description("Launch multi-agent swarm in tmux panes")
@@ -497,7 +497,7 @@ program
       agents.push({ name, model });
     }
     if (agents.length === 0) {
-      console.error("[clnode] No agents specified");
+      console.error("[mimir] No agents specified");
       process.exit(1);
     }
     const leaderModel = MODEL_MAP[opts.leaderModel] ?? opts.leaderModel;
@@ -506,7 +506,7 @@ program
     try {
       execSync("tmux -V", { stdio: "ignore" });
     } catch {
-      console.error("[clnode] tmux is not installed. Install tmux first.");
+      console.error("[mimir] tmux is not installed. Install tmux first.");
       process.exit(1);
     }
 
@@ -516,39 +516,39 @@ program
 
     // Ensure daemon is running
     try {
-      await fetch(`${CLNODE_URL}/api/health`);
+      await fetch(`${MIMIR_URL}/api/health`);
     } catch {
-      console.log("[clnode] Daemon not running, starting...");
+      console.log("[mimir] Daemon not running, starting...");
       execSync(`node ${path.resolve(import.meta.dirname ?? ".", "../cli/index.js")} start`, { stdio: "inherit" });
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    const sessionName = `clnode-swarm-${Date.now()}`;
+    const sessionName = `mimir-swarm-${Date.now()}`;
 
     // Pane 0: orchestrator (always opus)
     execSync(
-      `tmux new-session -d -s '${sessionName}' -e CLNODE_AGENT_NAME='orchestrator' -e CLNODE_PROJECT_ID='${projectId}'`,
+      `tmux new-session -d -s '${sessionName}' -e MIMIR_AGENT_NAME='orchestrator' -e MIMIR_PROJECT_ID='${projectId}'`,
       { stdio: "ignore" }
     );
     execSync(
       `tmux send-keys -t '${sessionName}' 'claude --model ${leaderModel}' Enter`,
       { stdio: "ignore" }
     );
-    console.log(`[clnode] tmux session: ${sessionName}`);
-    console.log(`[clnode] Orchestrator (${leaderModel}) → pane 0`);
+    console.log(`[mimir] tmux session: ${sessionName}`);
+    console.log(`[mimir] Orchestrator (${leaderModel}) → pane 0`);
 
     // Create agent panes
     for (let i = 0; i < agents.length; i++) {
       const { name, model } = agents[i];
       execSync(
-        `tmux split-window -t '${sessionName}' -e CLNODE_AGENT_NAME='${name}' -e CLNODE_PROJECT_ID='${projectId}'`,
+        `tmux split-window -t '${sessionName}' -e MIMIR_AGENT_NAME='${name}' -e MIMIR_PROJECT_ID='${projectId}'`,
         { stdio: "ignore" }
       );
       execSync(
         `tmux send-keys -t '${sessionName}' 'claude --model ${model}' Enter`,
         { stdio: "ignore" }
       );
-      console.log(`[clnode] Agent "${name}" (${model}) → pane ${i + 1}`);
+      console.log(`[mimir] Agent "${name}" (${model}) → pane ${i + 1}`);
     }
 
     // Apply layout
@@ -558,7 +558,7 @@ program
     );
 
     // Wait for Claude sessions to start
-    console.log("[clnode] Waiting for Claude sessions to initialize...");
+    console.log("[mimir] Waiting for Claude sessions to initialize...");
     await new Promise(r => setTimeout(r, 5000));
 
     // Build team roster for context
@@ -567,13 +567,13 @@ program
 
     // Send initial task via messages if provided
     if (opts.task) {
-      console.log(`[clnode] Sending initial task to all agents...`);
+      console.log(`[mimir] Sending initial task to all agents...`);
 
       // Task to each agent with clear instructions
       for (const { name: agent } of agents) {
         const otherAgents = agentNames.filter(a => a !== agent);
         try {
-          await fetch(`${CLNODE_URL}/api/messages`, {
+          await fetch(`${MIMIR_URL}/api/messages`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -595,13 +595,13 @@ program
             }),
           });
         } catch {
-          console.error(`[clnode] Failed to send task to ${agent}`);
+          console.error(`[mimir] Failed to send task to ${agent}`);
         }
       }
 
       // Instruct leader to wait for reports
       try {
-        await fetch(`${CLNODE_URL}/api/messages`, {
+        await fetch(`${MIMIR_URL}/api/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -621,14 +621,14 @@ program
           }),
         });
       } catch {
-        console.error("[clnode] Failed to send leader instructions");
+        console.error("[mimir] Failed to send leader instructions");
       }
 
-      console.log("[clnode] Initial tasks sent.");
+      console.log("[mimir] Initial tasks sent.");
     }
 
-    console.log(`\n[clnode] Swarm launched! 1 leader + ${agents.length} agents in tmux session "${sessionName}"`);
-    console.log(`[clnode] Kill: tmux kill-session -t '${sessionName}'`);
+    console.log(`\n[mimir] Swarm launched! 1 leader + ${agents.length} agents in tmux session "${sessionName}"`);
+    console.log(`[mimir] Kill: tmux kill-session -t '${sessionName}'`);
 
     // Auto-attach to tmux session
     const attach = spawn("tmux", ["attach", "-t", sessionName], {
@@ -639,7 +639,7 @@ program
     });
   });
 
-// clnode tmux (low-level tmux session/pane management via API)
+// mimir tmux (low-level tmux session/pane management via API)
 const tmux = program.command("tmux").description("Tmux session/pane management");
 
 tmux
@@ -647,20 +647,20 @@ tmux
   .description("Create a new tmux session for a project")
   .action(async (projectId: string) => {
     try {
-      const res = await fetch(`${CLNODE_URL}/api/tmux/sessions`, {
+      const res = await fetch(`${MIMIR_URL}/api/tmux/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project_id: projectId }),
       });
       const result = await res.json() as { ok?: boolean; session_name?: string; error?: string };
       if (result.ok) {
-        console.log(`[clnode] Tmux session created: ${result.session_name}`);
+        console.log(`[mimir] Tmux session created: ${result.session_name}`);
       } else {
-        console.error(`[clnode] Error: ${result.error}`);
+        console.error(`[mimir] Error: ${result.error}`);
         process.exit(1);
       }
     } catch (error) {
-      console.error(`[clnode] Failed to connect to daemon: ${error}`);
+      console.error(`[mimir] Failed to connect to daemon: ${error}`);
       process.exit(1);
     }
   });
@@ -671,7 +671,7 @@ tmux
   .option("--start-claude", "Start Claude session in the pane")
   .action(async (sessionName: string, agentName: string, opts: { startClaude?: boolean }) => {
     try {
-      const res = await fetch(`${CLNODE_URL}/api/tmux/panes`, {
+      const res = await fetch(`${MIMIR_URL}/api/tmux/panes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -682,13 +682,13 @@ tmux
       });
       const result = await res.json() as { ok?: boolean; pane_id?: string; error?: string };
       if (result.ok) {
-        console.log(`[clnode] Pane created: ${result.pane_id} (agent: ${agentName})`);
+        console.log(`[mimir] Pane created: ${result.pane_id} (agent: ${agentName})`);
       } else {
-        console.error(`[clnode] Error: ${result.error}`);
+        console.error(`[mimir] Error: ${result.error}`);
         process.exit(1);
       }
     } catch (error) {
-      console.error(`[clnode] Failed to connect to daemon: ${error}`);
+      console.error(`[mimir] Failed to connect to daemon: ${error}`);
       process.exit(1);
     }
   });
@@ -698,18 +698,18 @@ tmux
   .description("Kill a tmux pane")
   .action(async (paneId: string) => {
     try {
-      const res = await fetch(`${CLNODE_URL}/api/tmux/panes/${encodeURIComponent(paneId)}`, {
+      const res = await fetch(`${MIMIR_URL}/api/tmux/panes/${encodeURIComponent(paneId)}`, {
         method: "DELETE",
       });
       const result = await res.json() as { ok?: boolean; error?: string };
       if (result.ok) {
-        console.log(`[clnode] Pane killed: ${paneId}`);
+        console.log(`[mimir] Pane killed: ${paneId}`);
       } else {
-        console.error(`[clnode] Error: ${result.error}`);
+        console.error(`[mimir] Error: ${result.error}`);
         process.exit(1);
       }
     } catch (error) {
-      console.error(`[clnode] Failed to connect to daemon: ${error}`);
+      console.error(`[mimir] Failed to connect to daemon: ${error}`);
       process.exit(1);
     }
   });
@@ -719,18 +719,18 @@ tmux
   .description("Kill a tmux session and all its panes")
   .action(async (sessionName: string) => {
     try {
-      const res = await fetch(`${CLNODE_URL}/api/tmux/sessions/${encodeURIComponent(sessionName)}`, {
+      const res = await fetch(`${MIMIR_URL}/api/tmux/sessions/${encodeURIComponent(sessionName)}`, {
         method: "DELETE",
       });
       const result = await res.json() as { ok?: boolean; error?: string };
       if (result.ok) {
-        console.log(`[clnode] Session killed: ${sessionName}`);
+        console.log(`[mimir] Session killed: ${sessionName}`);
       } else {
-        console.error(`[clnode] Error: ${result.error}`);
+        console.error(`[mimir] Error: ${result.error}`);
         process.exit(1);
       }
     } catch (error) {
-      console.error(`[clnode] Failed to connect to daemon: ${error}`);
+      console.error(`[mimir] Failed to connect to daemon: ${error}`);
       process.exit(1);
     }
   });
@@ -746,7 +746,7 @@ tmux
     try {
       if (!opts.panes) {
         const query = opts.project ? `?project_id=${encodeURIComponent(opts.project)}` : "";
-        const res = await fetch(`${CLNODE_URL}/api/tmux/sessions${query}`);
+        const res = await fetch(`${MIMIR_URL}/api/tmux/sessions${query}`);
         const sessions = await res.json() as Array<{ session_name: string; project_id: string; status: string; created_at: string }>;
         console.log(`\n[Sessions] (${sessions.length})`);
         for (const s of sessions) {
@@ -756,7 +756,7 @@ tmux
 
       if (!opts.sessions) {
         const query = opts.session ? `?session_name=${encodeURIComponent(opts.session)}` : "";
-        const res = await fetch(`${CLNODE_URL}/api/tmux/panes${query}`);
+        const res = await fetch(`${MIMIR_URL}/api/tmux/panes${query}`);
         const panes = await res.json() as Array<{ pane_id: string; session_name: string; agent_name: string | null; status: string }>;
         console.log(`\n[Panes] (${panes.length})`);
         for (const p of panes) {
@@ -764,12 +764,12 @@ tmux
         }
       }
     } catch (error) {
-      console.error(`[clnode] Failed to connect to daemon: ${error}`);
+      console.error(`[mimir] Failed to connect to daemon: ${error}`);
       process.exit(1);
     }
   });
 
-// clnode mcp
+// mimir mcp
 program
   .command("mcp")
   .description("Run MCP server (stdio mode for Claude Code)")
@@ -785,7 +785,7 @@ program
     });
 
     child.on("error", (err) => {
-      console.error("[clnode] Failed to start MCP server:", err.message);
+      console.error("[mimir] Failed to start MCP server:", err.message);
       process.exit(1);
     });
 

@@ -24,10 +24,10 @@ export interface TmuxPane {
 
 /**
  * Create a new tmux session for a project.
- * Session name format: clnode-{project_id}
+ * Session name format: mimir-{project_id}
  */
 export async function createTmuxSession(projectId: string): Promise<string> {
-  const sessionName = `clnode-${projectId}`;
+  const sessionName = `mimir-${projectId}`;
   const db = await getDb();
 
   // Check if session already exists (active or inactive)
@@ -137,7 +137,7 @@ export async function startClaudeSession(
 ): Promise<void> {
   const db = await getDb();
 
-  // Extract project_id from session_name (format: clnode-{project_id})
+  // Extract project_id from session_name (format: mimir-{project_id})
   const result = await db.all(
     `SELECT project_id FROM tmux_sessions WHERE session_name = ?`,
     sessionName
@@ -167,8 +167,8 @@ export async function startClaudeSession(
   const claudeCmd = skipPermissions ? `claude --dangerously-skip-permissions` : `claude`;
   const command = [
     `cd "${projectPath}"`,
-    `export CLNODE_AGENT_NAME="${agentName}"`,
-    `export CLNODE_PROJECT_ID="${projectId}"`,
+    `export MIMIR_AGENT_NAME="${agentName}"`,
+    `export MIMIR_PROJECT_ID="${projectId}"`,
     claudeCmd,
   ].join(" && ");
 

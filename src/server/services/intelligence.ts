@@ -172,7 +172,7 @@ export async function buildSmartContext(
   if (prioritySections.length === 0) return "";
 
   // Apply token budget: include sections in priority order until budget exhausted
-  const header = `[clnode smart context for ${agentName}]\n\n`;
+  const header = `[mimir smart context for ${agentName}]\n\n`;
   let totalChars = header.length;
   const includedSections: string[] = [];
 
@@ -226,7 +226,7 @@ export async function checkIncompleteTasks(
   if (incomplete.length === 0) return null;
 
   const lines = incomplete.map((t) => `- [${t.status}] ${t.title}`);
-  return `[clnode warning] Agent ${agentName} stopping with ${incomplete.length} incomplete task(s):\n${lines.join("\n")}`;
+  return `[mimir warning] Agent ${agentName} stopping with ${incomplete.length} incomplete task(s):\n${lines.join("\n")}`;
 }
 
 /**
@@ -311,8 +311,8 @@ export async function buildPromptContext(
   }
 
   if (sections.length === 0) {
-    return "[clnode project context]\n\n(No active tasks or agents)";
+    return "[mimir project context]\n\n(No active tasks or agents)";
   }
 
-  return `[clnode project context]\n\n${sections.join("\n\n")}`;
+  return `[mimir project context]\n\n${sections.join("\n\n")}`;
 }

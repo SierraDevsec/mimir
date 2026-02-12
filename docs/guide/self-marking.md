@@ -4,23 +4,23 @@
 
 Most AI memory systems follow the same pattern: an **external observer** watches what an agent does, then compresses it after the fact. This is like hiring someone to take meeting notes who wasn't actually in the meeting — they can describe what happened, but they can't tell you **why**.
 
-clnode takes a fundamentally different approach: **agents mark their own discoveries as they work.**
+Mimir takes a fundamentally different approach: **agents mark their own discoveries as they work.**
 
 ```
 Observer pattern (claude-mem etc.):
   Agent works → External AI watches → Guesses what was important → Stores summary
   Problem: The observer doesn't know WHY the agent did something
 
-Self-marking pattern (clnode):
+Self-marking pattern (mimir):
   Agent works → Discovers something important → Marks it immediately → Stored in DuckDB
   Advantage: The agent knows exactly what matters and why
 ```
 
-## What Makes clnode Unique
+## What Makes Mimir Unique
 
 No other public project combines all of these:
 
-| Capability | clnode | claude-mem | MEMORY.md | RAG tools |
+| Capability | mimir | claude-mem | MEMORY.md | RAG tools |
 |-----------|--------|------------|-----------|-----------|
 | Agent self-marking (not external AI) | Yes | No | No | No |
 | Multi-agent propagation | Yes | No | No | No |
@@ -31,7 +31,7 @@ No other public project combines all of these:
 | Built on vanilla Claude Code | Yes | Yes | Yes | N/A |
 
 **claude-mem** created "a remembering individual" — a single agent that recalls past work.
-**clnode** created "a remembering team" — a swarm where knowledge flows between agents across sessions.
+**Mimir** created "a remembering team" — a swarm where knowledge flows between agents across sessions.
 
 ## How It Works
 
@@ -127,9 +127,9 @@ Both paths end at the same DuckDB table. The skill automatically detects the env
 |--------|--------------------|-----------------------|
 | claude-mem | Haiku API call per agent | MCP tool call |
 | Custom RAG | Embedding API calls | Vector search API |
-| clnode | **$0** (agent self-marks) | **$0** (hook auto-injection) |
+| mimir | **$0** (agent self-marks) | **$0** (hook auto-injection) |
 
-clnode achieves long-term swarm memory with zero additional API cost because:
+Mimir achieves long-term swarm memory with zero additional API cost because:
 1. Marking is done by the agent already running (no extra AI call)
 2. Injection is done by hooks (shell script + HTTP, no AI involved)
 3. Search uses DuckDB FTS locally (no external API)

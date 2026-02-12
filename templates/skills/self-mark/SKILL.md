@@ -22,9 +22,9 @@ save_observation({ text: "one sentence", type: "warning", concepts: ["keyword"],
 
 **Option 2 — curl fallback** (if MCP tool is unavailable):
 ```bash
-curl -s -X POST http://localhost:${CLNODE_PORT:-3100}/api/observations \
+curl -s -X POST http://localhost:${MIMIR_PORT:-3100}/api/observations \
   -H 'Content-Type: application/json' \
-  -d '{"project_id":"'"${CLNODE_PROJECT_ID:-clnode}"'","text":"one sentence","type":"warning","concepts":["keyword"],"files":["src/file.ts"]}'
+  -d '{"project_id":"'"${MIMIR_PROJECT_ID:-mimir}"'","text":"one sentence","type":"warning","concepts":["keyword"],"files":["src/file.ts"]}'
 ```
 
 **Try MCP first.** If `save_observation` tool is not in your tool list, use curl via Bash.

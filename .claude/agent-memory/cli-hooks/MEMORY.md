@@ -16,8 +16,8 @@
 ### CLI Structure (commander.js)
 - Entry point: `src/cli/index.ts` with `#!/usr/bin/env node` shebang
 - Commands: start, stop, status, init, ui, logs
-- Port configurable via `CLNODE_PORT` env var (default 3100)
-- PID file at `data/clnode.pid`, log file at `data/clnode.log`
+- Port configurable via `MIMIR_PORT` env var (default 3100)
+- PID file at `data/mimir.pid`, log file at `data/mimir.log`
 - Data directory resolved from `import.meta.dirname` (ESM pattern)
 
 ### Daemon Lifecycle
@@ -34,7 +34,7 @@
 5. Merge hooks into `.claude/settings.local.json` (preserves existing settings)
 6. Copy templates (skip with `--hooks-only`):
    - Skills: all skill directories from templates/skills/
-   - Agents: all .md files from templates/agents/ (currently clnode-curator.md, clnode-reviewer.md)
+   - Agents: all .md files from templates/agents/ (currently mimir-curator.md, mimir-reviewer.md)
    - Rules: all .md files from templates/rules/ (currently team.md)
    - Agent memory: seed MEMORY.md for installed agents from templates/agent-memory/
 7. Auto-start daemon if not running (with 1s startup wait)
@@ -49,21 +49,21 @@
 ### Hook Config Structure
 - 7 events configured: SessionStart, SessionEnd, SubagentStart, SubagentStop, PostToolUse, Stop, UserPromptSubmit
 - Each event: `{ hooks: [{ type: "command", command: "HOOK_SCRIPT_PATH" }] }`
-- Custom port: prepends `CLNODE_PORT=<port>` to command string
+- Custom port: prepends `MIMIR_PORT=<port>` to command string
 
 ## Known Gotchas
 
 - hook.sh path resolution: when installed via npm, hook.sh is at `<package>/src/hooks/hook.sh` (included via `files` field in package.json)
-- `npx clnode` runs from npm cache, NOT local development directory -- for dev testing, use `node dist/cli/index.js` or `tsx src/cli/index.ts`
+- `npx mimir` runs from npm cache, NOT local development directory -- for dev testing, use `node dist/cli/index.js` or `tsx src/cli/index.ts`
 - hooks-config.json uses string replacement (`replaceAll("HOOK_SCRIPT_PATH", hookCommand)`) not template engine
-- Non-default port: hook command becomes `CLNODE_PORT=3200 /path/to/hook.sh` (env var prefix)
-- `clnode init` auto-starts daemon but the 1s wait may not be enough on slow systems -- project registration has retry logic for this
-- `clnode logs -f` spawns a `tail -f` process that inherits stdio -- exits when user presses Ctrl+C
-- `clnode ui` uses platform-specific open commands: `open` (macOS), `xdg-open` (Linux), `start` (Windows)
+- Non-default port: hook command becomes `MIMIR_PORT=3200 /path/to/hook.sh` (env var prefix)
+- `mimir init` auto-starts daemon but the 1s wait may not be enough on slow systems -- project registration has retry logic for this
+- `mimir logs -f` spawns a `tail -f` process that inherits stdio -- exits when user presses Ctrl+C
+- `mimir ui` uses platform-specific open commands: `open` (macOS), `xdg-open` (Linux), `start` (Windows)
 
 ## Cross-domain Dependencies
 
-- hook.sh depends on daemon running at `localhost:{CLNODE_PORT}` -- POSTs to `/hooks/{event}`
+- hook.sh depends on daemon running at `localhost:{MIMIR_PORT}` -- POSTs to `/hooks/{event}`
 - Init command depends on templates existing at `../../templates/` relative to built CLI
 - Init auto-starts daemon using `../server/index.js` relative path from built CLI
 - Settings written to `.claude/settings.local.json` are read by Claude Code on session start
@@ -72,14 +72,14 @@
 ### Observer Integration (2026-02-09)
 - PostToolUse hook now queues tool data to `observation_queue` via `queueObservation()` (fire-and-forget)
 - SubagentStop hook processes queue: `processObservations()` → `generateSummary()` (both in try/catch, never block)
-- Observer enabled/disabled via `CLNODE_OBSERVER` env var (checked by `isObserverEnabled()`)
+- Observer enabled/disabled via `MIMIR_OBSERVER` env var (checked by `isObserverEnabled()`)
 - hook.sh unchanged — all observer logic is server-side in hooks.ts route handler
 
 ## Recent Context
 
 - Init copies ALL template agents and rules by default; `--hooks-only` skips templates entirely
-- Template agents: clnode-curator.md, clnode-reviewer.md (no worker.md -- removed)
-- Template rules: team.md only (no clnode-usage.md -- removed)
+- Template agents: mimir-curator.md, mimir-reviewer.md (no worker.md -- removed)
+- Template rules: team.md only (no mimir-usage.md -- removed)
 - Agent memory seeding: only seeds MEMORY.md for agents that were actually installed
 - Project registration has retry logic with 3 attempts for daemon startup race
 - VSCode Extension has parallel auto-init logic in `auto-init.ts` (different from CLI init)

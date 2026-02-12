@@ -33,14 +33,14 @@ export function openWebviewPanel(port: number, route: string = "/", title?: stri
 
   if (currentPanel) {
     currentPanel.webview.html = html;
-    currentPanel.title = title ?? "clnode Dashboard";
+    currentPanel.title = title ?? "Mimir Dashboard";
     currentPanel.reveal(column);
     return;
   }
 
   currentPanel = vscode.window.createWebviewPanel(
-    "clnode-webview",
-    title ?? "clnode Dashboard",
+    "mimir-webview",
+    title ?? "Mimir Dashboard",
     column,
     {
       enableScripts: true,

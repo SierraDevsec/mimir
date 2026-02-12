@@ -7,16 +7,16 @@ nav_order: 1
 
 # How It Works
 
-clnode uses Claude Code's built-in hook system to intercept agent lifecycle events and route context through a local DuckDB database.
+Mimir uses Claude Code's built-in hook system to intercept agent lifecycle events and route context through a local DuckDB database.
 
 ## Architecture
 
 ```
 Claude Code Session
 │
-├── Agent A starts  ──→  hook ──→  clnode daemon ──→  DuckDB (store)
-├── Agent A stops   ──→  hook ──→  clnode daemon ──→  DuckDB (save summary)
-├── Agent B starts  ──→  hook ──→  clnode daemon ──→  DuckDB (read A's summary)
+├── Agent A starts  ──→  hook ──→  mimir daemon ──→  DuckDB (store)
+├── Agent A stops   ──→  hook ──→  mimir daemon ──→  DuckDB (save summary)
+├── Agent B starts  ──→  hook ──→  mimir daemon ──→  DuckDB (read A's summary)
 │                                       │
 │                                       └──→ stdout: additionalContext
 │                                             (A's results injected into B)
@@ -25,9 +25,9 @@ Claude Code Session
 
 ## Hook Events
 
-clnode intercepts these Claude Code lifecycle events:
+Mimir intercepts these Claude Code lifecycle events:
 
-| Event | When | What clnode Does |
+| Event | When | What Mimir Does |
 |-------|------|------------------|
 | **SessionStart** | Claude Code session begins | Register session, link to project |
 | **SubagentStart** | Agent spawned | Register agent, inject smart context via `additionalContext` |

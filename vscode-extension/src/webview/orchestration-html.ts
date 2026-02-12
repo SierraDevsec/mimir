@@ -174,7 +174,7 @@ export function getOrchestrationHtml(port: number, projectId: string): string {
           <circle cx="25" cy="18" r="2.5" fill="#a3a3a3"/>
           <circle cx="16" cy="27" r="2.5" fill="#a3a3a3"/>
         </svg>
-        <span class="name">CLNODE</span>
+        <span class="name">MIMIR</span>
       </div>
       <span class="project-name" id="project-name">${projectId}</span>
       <span class="spacer"></span>
@@ -213,7 +213,7 @@ export function getOrchestrationHtml(port: number, projectId: string): string {
       <div class="terminal-placeholder" id="terminal-view">
         <div class="icon">\u{1F4DF}</div>
         <div class="text">Swarm Terminal (tmux)</div>
-        <div class="hint">tmux session: clnode-${projectId}</div>
+        <div class="hint">tmux session: mimir-${projectId}</div>
         <button class="open-terminal-btn" onclick="openTerminal()">Open in Editor Tab</button>
         <div class="hint" style="margin-top:8px">The Swarm terminal opens as a separate editor tab.<br/>You can split-view it alongside this page.</div>
       </div>

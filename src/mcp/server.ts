@@ -3,14 +3,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const CLNODE_PORT = parseInt(process.env.CLNODE_PORT ?? "3100", 10);
-const CLNODE_URL = `http://localhost:${CLNODE_PORT}`;
-const DEFAULT_PROJECT_ID = process.env.CLNODE_PROJECT_ID ?? "";
-const DEFAULT_AGENT_NAME = process.env.CLNODE_AGENT_NAME ?? "";
+const MIMIR_PORT = parseInt(process.env.MIMIR_PORT ?? "3100", 10);
+const MIMIR_URL = `http://localhost:${MIMIR_PORT}`;
+const DEFAULT_PROJECT_ID = process.env.MIMIR_PROJECT_ID ?? "";
+const DEFAULT_AGENT_NAME = process.env.MIMIR_AGENT_NAME ?? "";
 const TMUX_PANE = process.env.TMUX_PANE ?? null;
 
 async function apiCall(method: string, path: string, body?: unknown): Promise<unknown> {
-  const res = await fetch(`${CLNODE_URL}${path}`, {
+  const res = await fetch(`${MIMIR_URL}${path}`, {
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -45,7 +45,7 @@ function resolveProject(param: string | undefined): string | null {
 }
 
 const server = new McpServer({
-  name: "clnode-messaging",
+  name: "mimir-messaging",
   version: "0.3.0",
 });
 
@@ -58,20 +58,20 @@ server.tool(
   "register_agent",
   "Register this agent session for automatic message notifications via tmux. Usually auto-registered, but call this to re-register or verify.",
   {
-    agent_name: z.string().optional().describe("Agent name (auto-detected from CLNODE_AGENT_NAME env if omitted)"),
-    project_id: z.string().optional().describe("Project ID (auto-detected from CLNODE_PROJECT_ID env if omitted)"),
+    agent_name: z.string().optional().describe("Agent name (auto-detected from MIMIR_AGENT_NAME env if omitted)"),
+    project_id: z.string().optional().describe("Project ID (auto-detected from MIMIR_PROJECT_ID env if omitted)"),
   },
   async ({ agent_name, project_id }) => {
     const name = resolveAgent(agent_name);
     const pid = resolveProject(project_id);
     if (!name) {
       return {
-        content: [{ type: "text" as const, text: "Error: agent_name required. Set CLNODE_AGENT_NAME env or pass agent_name parameter." }],
+        content: [{ type: "text" as const, text: "Error: agent_name required. Set MIMIR_AGENT_NAME env or pass agent_name parameter." }],
       };
     }
     if (!pid) {
       return {
-        content: [{ type: "text" as const, text: "Error: project_id required. Set CLNODE_PROJECT_ID env or pass project_id parameter." }],
+        content: [{ type: "text" as const, text: "Error: project_id required. Set MIMIR_PROJECT_ID env or pass project_id parameter." }],
       };
     }
     if (!TMUX_PANE) {
@@ -91,7 +91,7 @@ server.tool(
       };
     } catch {
       return {
-        content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon at ${CLNODE_URL}. Is it running?` }],
+        content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon at ${MIMIR_URL}. Is it running?` }],
       };
     }
   }
@@ -99,12 +99,12 @@ server.tool(
 
 server.tool(
   "send_message",
-  "Send a message to another agent. Your identity (from) is auto-detected from CLNODE_AGENT_NAME env. The target agent will be automatically notified via tmux.",
+  "Send a message to another agent. Your identity (from) is auto-detected from MIMIR_AGENT_NAME env. The target agent will be automatically notified via tmux.",
   {
     to: z.string().describe("Target agent name to send message to"),
     content: z.string().describe("Message content"),
-    from: z.string().optional().describe("Your agent name (auto-detected from CLNODE_AGENT_NAME env if omitted)"),
-    project_id: z.string().optional().describe("Project ID (auto-detected from CLNODE_PROJECT_ID env if omitted)"),
+    from: z.string().optional().describe("Your agent name (auto-detected from MIMIR_AGENT_NAME env if omitted)"),
+    project_id: z.string().optional().describe("Project ID (auto-detected from MIMIR_PROJECT_ID env if omitted)"),
     priority: z.enum(["low", "normal", "high", "urgent"]).optional().describe("Message priority (default: normal)"),
   },
   async ({ to, content, from, project_id, priority }) => {
@@ -112,12 +112,12 @@ server.tool(
     const pid = resolveProject(project_id);
     if (!sender) {
       return {
-        content: [{ type: "text" as const, text: "Error: from required. Set CLNODE_AGENT_NAME env or pass from parameter." }],
+        content: [{ type: "text" as const, text: "Error: from required. Set MIMIR_AGENT_NAME env or pass from parameter." }],
       };
     }
     if (!pid) {
       return {
-        content: [{ type: "text" as const, text: "Error: project_id required. Set CLNODE_PROJECT_ID env or pass project_id parameter." }],
+        content: [{ type: "text" as const, text: "Error: project_id required. Set MIMIR_PROJECT_ID env or pass project_id parameter." }],
       };
     }
     await autoRegister(sender, pid);
@@ -140,7 +140,7 @@ server.tool(
       };
     } catch {
       return {
-        content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon at ${CLNODE_URL}. Is it running?` }],
+        content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon at ${MIMIR_URL}. Is it running?` }],
       };
     }
   }
@@ -148,10 +148,10 @@ server.tool(
 
 server.tool(
   "read_messages",
-  "Read pending messages addressed to you. Your identity is auto-detected from CLNODE_AGENT_NAME env. Messages are automatically marked as read.",
+  "Read pending messages addressed to you. Your identity is auto-detected from MIMIR_AGENT_NAME env. Messages are automatically marked as read.",
   {
-    agent_name: z.string().optional().describe("Your agent name (auto-detected from CLNODE_AGENT_NAME env if omitted)"),
-    project_id: z.string().optional().describe("Project ID (auto-detected from CLNODE_PROJECT_ID env if omitted)"),
+    agent_name: z.string().optional().describe("Your agent name (auto-detected from MIMIR_AGENT_NAME env if omitted)"),
+    project_id: z.string().optional().describe("Project ID (auto-detected from MIMIR_PROJECT_ID env if omitted)"),
     limit: z.number().optional().describe("Max messages to retrieve (default: 10)"),
   },
   async ({ agent_name, project_id, limit }) => {
@@ -159,12 +159,12 @@ server.tool(
     const pid = resolveProject(project_id);
     if (!name) {
       return {
-        content: [{ type: "text" as const, text: "Error: agent_name required. Set CLNODE_AGENT_NAME env or pass agent_name parameter." }],
+        content: [{ type: "text" as const, text: "Error: agent_name required. Set MIMIR_AGENT_NAME env or pass agent_name parameter." }],
       };
     }
     if (!pid) {
       return {
-        content: [{ type: "text" as const, text: "Error: project_id required. Set CLNODE_PROJECT_ID env or pass project_id parameter." }],
+        content: [{ type: "text" as const, text: "Error: project_id required. Set MIMIR_PROJECT_ID env or pass project_id parameter." }],
       };
     }
     await autoRegister(name, pid);
@@ -194,7 +194,7 @@ server.tool(
       };
     } catch {
       return {
-        content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon at ${CLNODE_URL}. Is it running?` }],
+        content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon at ${MIMIR_URL}. Is it running?` }],
       };
     }
   }
@@ -204,7 +204,7 @@ server.tool(
   "list_agents",
   "List registered agents that you can send messages to.",
   {
-    project_id: z.string().optional().describe("Project ID (auto-detected from CLNODE_PROJECT_ID env if omitted)"),
+    project_id: z.string().optional().describe("Project ID (auto-detected from MIMIR_PROJECT_ID env if omitted)"),
   },
   async ({ project_id }) => {
     const pid = resolveProject(project_id);
@@ -228,7 +228,7 @@ server.tool(
       };
     } catch {
       return {
-        content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon at ${CLNODE_URL}. Is it running?` }],
+        content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon at ${MIMIR_URL}. Is it running?` }],
       };
     }
   }
@@ -291,7 +291,7 @@ server.tool(
         content: [{ type: "text" as const, text: `${results.length} observation(s):\n${lines.join("\n")}\n\nUse get_details([ids]) for full content.` }],
       };
     } catch {
-      return { content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon.` }] };
+      return { content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon.` }] };
     }
   }
 );
@@ -328,7 +328,7 @@ server.tool(
         content: [{ type: "text" as const, text: `Timeline around #${anchor_id}:\n${lines.join("\n")}` }],
       };
     } catch {
-      return { content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon.` }] };
+      return { content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon.` }] };
     }
   }
 );
@@ -366,7 +366,7 @@ server.tool(
         content: [{ type: "text" as const, text: blocks.join("\n\n---\n\n") }],
       };
     } catch {
-      return { content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon.` }] };
+      return { content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon.` }] };
     }
   }
 );
@@ -400,7 +400,7 @@ server.tool(
       }
       return { content: [{ type: "text" as const, text: `Error: ${result.error ?? "unknown"}` }] };
     } catch {
-      return { content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon.` }] };
+      return { content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon.` }] };
     }
   }
 );
@@ -441,7 +441,7 @@ server.tool(
         content: [{ type: "text" as const, text: `${candidates.length} promotion candidate(s):\n\n${blocks.join("\n\n")}` }],
       };
     } catch {
-      return { content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon.` }] };
+      return { content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon.` }] };
     }
   }
 );
@@ -465,7 +465,7 @@ server.tool(
       }
       return { content: [{ type: "text" as const, text: `Error: ${result.error ?? "unknown"}` }] };
     } catch {
-      return { content: [{ type: "text" as const, text: `Error: Could not connect to clnode daemon.` }] };
+      return { content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon.` }] };
     }
   }
 );

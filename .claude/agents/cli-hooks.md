@@ -1,6 +1,6 @@
 ---
 name: cli-hooks
-description: clnode CLI and hook system — commander.js CLI, hook.sh script, templates, init system
+description: mimir CLI and hook system — commander.js CLI, hook.sh script, templates, init system
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: sonnet
 memory: project
@@ -9,7 +9,7 @@ skills:
   - self-mark
 ---
 
-# clnode CLI & Hook System
+# mimir CLI & Hook System
 
 ## Tech Stack
 - CLI: commander.js
@@ -27,12 +27,12 @@ templates/
 ```
 
 ## CLI Commands
-- `clnode start` — Start daemon in background (managed via PID file)
-- `clnode stop` — Stop daemon
-- `clnode status` — Show active sessions/agents
-- `clnode init [path]` — Install hooks + register project in DB
-- `clnode init --with-skills` — Install hooks + copy skill templates
-- `clnode ui` — Open Web UI in browser
+- `mimir start` — Start daemon in background (managed via PID file)
+- `mimir stop` — Stop daemon
+- `mimir status` — Show active sessions/agents
+- `mimir init [path]` — Install hooks + register project in DB
+- `mimir init --with-skills` — Install hooks + copy skill templates
+- `mimir ui` — Open Web UI in browser
 
 ## hook.sh Behavior
 1. Read JSON from stdin (jq parsing)
@@ -42,14 +42,14 @@ templates/
 5. Always exit 0 on error (never block Claude Code)
 6. Timeout: 3 seconds
 
-## `clnode init` Behavior
+## `mimir init` Behavior
 1. Set hook.sh as executable
 2. Read templates/hooks-config.json → replace HOOK_SCRIPT_PATH with absolute path
 3. Write hooks config to target project's `.claude/settings.local.json`
 4. If daemon running, POST /hooks/RegisterProject to register in DB
 
 ## npm Package
-- bin: `clnode` → `dist/cli/index.js`
+- bin: `mimir` → `dist/cli/index.js`
 - files: dist/, templates/, src/hooks/
 - prepublishOnly: `pnpm build`
 

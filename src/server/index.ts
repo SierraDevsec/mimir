@@ -72,7 +72,7 @@ if (existsSync(webDistPath)) {
 } else {
   app.get("/", (c) => {
     return c.json({
-      name: "clnode",
+      name: "mimir",
       version: "0.1.0",
       endpoints: {
         hooks: "POST /hooks/:event",
@@ -84,15 +84,15 @@ if (existsSync(webDistPath)) {
   });
 }
 
-const PORT = parseInt(process.env.CLNODE_PORT ?? "3100", 10);
+const PORT = parseInt(process.env.MIMIR_PORT ?? "3100", 10);
 
 async function main() {
   // DB 초기화
   await getDb();
-  console.log(`[clnode] database initialized`);
+  console.log(`[mimir] database initialized`);
 
   const server = serve({ fetch: app.fetch, port: PORT }, (info) => {
-    console.log(`[clnode] server running on http://localhost:${info.port}`);
+    console.log(`[mimir] server running on http://localhost:${info.port}`);
   });
 
   injectWebSocket(server);
@@ -118,7 +118,7 @@ async function main() {
 
   // graceful shutdown
   const shutdown = async () => {
-    console.log("\n[clnode] shutting down...");
+    console.log("\n[mimir] shutting down...");
     if (process.env.SLACK_BOT_TOKEN) {
       const { stopSlackBridge } = await import("./services/slack.js");
       stopSlackBridge();
@@ -135,13 +135,13 @@ async function main() {
 main().catch((err) => {
   const msg = err instanceof Error ? err.message : String(err);
   if (msg.includes("EADDRINUSE")) {
-    console.error(`[clnode] Port ${PORT} is already in use. Is another clnode instance running?`);
-    console.error(`[clnode] Try: clnode stop, or use CLNODE_PORT=<port> clnode start`);
+    console.error(`[mimir] Port ${PORT} is already in use. Is another mimir instance running?`);
+    console.error(`[mimir] Try: mimir stop, or use MIMIR_PORT=<port> mimir start`);
   } else if (msg.includes("duckdb") || msg.includes("DuckDB")) {
-    console.error(`[clnode] Database error: ${msg}`);
-    console.error(`[clnode] Try deleting data/clnode.duckdb and restarting`);
+    console.error(`[mimir] Database error: ${msg}`);
+    console.error(`[mimir] Try deleting data/mimir.duckdb and restarting`);
   } else {
-    console.error("[clnode] Fatal error:", msg);
+    console.error("[mimir] Fatal error:", msg);
   }
   process.exit(1);
 });

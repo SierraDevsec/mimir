@@ -7,7 +7,7 @@ nav_order: 5
 
 # Task Management
 
-clnode provides a 6-stage kanban system for tracking work across agent sessions.
+Mimir provides a 6-stage kanban system for tracking work across agent sessions.
 
 ## Task Stages
 

@@ -7,7 +7,7 @@ nav_order: 5
 
 # DuckDB Schema
 
-clnode uses DuckDB as its local database. Data is stored at `data/clnode.duckdb`.
+Mimir uses DuckDB as its local database. Data is stored at `data/mimir.duckdb`.
 
 ## Tables
 
@@ -110,4 +110,4 @@ clnode uses DuckDB as its local database. Data is stored at `data/clnode.duckdb`
 - Always use `now()` — not `current_timestamp`
 - `COUNT(*)` returns BigInt — wrap with `Number()`
 - `VARCHAR[]` arrays need literal construction, bind params don't work
-- Database file: `data/clnode.duckdb`
+- Database file: `data/mimir.duckdb`

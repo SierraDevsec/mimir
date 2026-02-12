@@ -1,12 +1,12 @@
 {
   "mcpServers": {
-    "clnode-messaging": {
+    "mimir-messaging": {
       "command": "node",
       "args": ["dist/mcp/server.js"],
       "env": {
-        "CLNODE_PORT": "3100",
-        "CLNODE_PROJECT_ID": "clnode",
-        "CLNODE_AGENT_NAME": "node-backend"
+        "MIMIR_PORT": "3100",
+        "MIMIR_PROJECT_ID": "mimir",
+        "MIMIR_AGENT_NAME": "node-backend"
       }
     }
   }

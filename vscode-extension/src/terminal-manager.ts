@@ -47,10 +47,10 @@ export class TerminalManager {
       enableAllProjectMcpServers: true,
       permissions: {
         allow: [
-          "mcp__clnode-messaging__send_message",
-          "mcp__clnode-messaging__read_messages",
-          "mcp__clnode-messaging__list_agents",
-          "mcp__clnode-messaging__register_agent",
+          "mcp__mimir-messaging__send_message",
+          "mcp__mimir-messaging__read_messages",
+          "mcp__mimir-messaging__list_agents",
+          "mcp__mimir-messaging__register_agent",
         ],
       },
     });
@@ -59,9 +59,9 @@ export class TerminalManager {
       name: `Claude [${projectId}]`,
       cwd: projectPath,
       env: {
-        CLNODE_AGENT_NAME: "ROOTCLAUDE",
-        CLNODE_PROJECT_ID: projectId,
-        CLNODE_PORT: String(port),
+        MIMIR_AGENT_NAME: "ROOTCLAUDE",
+        MIMIR_PROJECT_ID: projectId,
+        MIMIR_PORT: String(port),
       },
       iconPath: new vscode.ThemeIcon("hubot"),
       // Place directly in editor area (not bottom panel)
@@ -104,7 +104,7 @@ export class TerminalManager {
 
     // Attach to tmux session with tiled layout
     terminal.sendText(
-      `tmux -L clnode attach -t clnode-${projectId} \\; ` +
+      `tmux -L mimir attach -t mimir-${projectId} \\; ` +
       `set-option -g window-size latest \\; ` +
       `set-option aggressive-resize on \\; ` +
       `set-hook -g client-resized select-layout\\ tiled \\; ` +

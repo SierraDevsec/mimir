@@ -10,40 +10,40 @@ nav_order: 7
 ## Overview
 
 ```bash
-clnode start              # Start daemon (port 3100)
-clnode stop               # Stop daemon
-clnode status             # Show active sessions/agents
-clnode init [path]        # Install hooks + agents/skills/rules + register project
-clnode ui                 # Open Web UI in browser
-clnode logs [-n N] [-f]   # View/follow daemon logs
+mimir start              # Start daemon (port 3100)
+mimir stop               # Stop daemon
+mimir status             # Show active sessions/agents
+mimir init [path]        # Install hooks + agents/skills/rules + register project
+mimir ui                 # Open Web UI in browser
+mimir logs [-n N] [-f]   # View/follow daemon logs
 ```
 
 ## Commands
 
-### `clnode start`
+### `mimir start`
 
 Start the daemon in the background. Runs on port 3100 by default.
 
 ```bash
-clnode start
+mimir start
 # Custom port
-CLNODE_PORT=3101 clnode start
+MIMIR_PORT=3101 mimir start
 ```
 
-### `clnode stop`
+### `mimir stop`
 
 Stop the running daemon.
 
-### `clnode status`
+### `mimir status`
 
 Show active sessions and agents. Useful for verifying the daemon is running and hooks are working.
 
-### `clnode init [path]`
+### `mimir init [path]`
 
-Install clnode into a project directory. This:
+Install mimir into a project directory. This:
 1. Installs hook configuration in `.claude/settings.local.json`
-2. Copies agent templates (`clnode-reviewer`, `clnode-curator`)
-3. Copies skill templates (`compress-output`, `compress-review`, `clnode-agents`)
+2. Copies agent templates (`mimir-reviewer`, `mimir-curator`)
+3. Copies skill templates (`compress-output`, `compress-review`, `mimir-agents`)
 4. Copies rule templates (`team.md`)
 5. Seeds agent memory files
 6. Registers the project in the database
@@ -53,11 +53,11 @@ Options:
 - `-p, --port <port>` — Daemon port (default: 3100)
 - `--hooks-only` — Install hooks only, skip all templates
 
-### `clnode ui`
+### `mimir ui`
 
 Open the Web UI dashboard in your default browser.
 
-### `clnode logs`
+### `mimir logs`
 
 View daemon logs.
 

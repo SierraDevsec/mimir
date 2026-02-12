@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 
 export class SidebarViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "clnode-sidebar-webview";
+  public static readonly viewType = "mimir-sidebar-webview";
 
   private _view?: vscode.WebviewView;
   private _onCommand?: (command: string, args?: Record<string, string>) => void;
@@ -43,7 +43,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage((msg) => {
       if (msg.command === "open") {
-        vscode.commands.executeCommand(`clnode.open${msg.page}`);
+        vscode.commands.executeCommand(`mimir.open${msg.page}`);
       } else if (msg.command === "navigate") {
         this._onCommand?.("navigate", { page: msg.page });
       }
@@ -231,7 +231,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       <circle cx="25" cy="18" r="2.5" fill="#34d399" opacity="0.85"/>
       <circle cx="16" cy="27" r="2.5" fill="#34d399" opacity="0.7"/>
     </svg>
-    <span>clnode</span>
+    <span>Mimir</span>
   </div>
 
   <div class="nav-main" id="nav-main">

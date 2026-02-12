@@ -1,6 +1,6 @@
 {
-  "name": "clnode-vscode",
-  "displayName": "clnode for VSCode",
+  "name": "mimir-vscode",
+  "displayName": "Mimir for VSCode",
   "description": "Claude Code swarm intelligence — agent monitoring, kanban board, and dashboard inside VSCode",
   "version": "0.3.2",
   "publisher": "DeeJayL",
@@ -8,7 +8,7 @@
     "type": "git",
     "url": "https://github.com/SierraDevsec/clnode"
   },
-  "icon": "resources/clnode-icon.png",
+  "icon": "resources/mimir-icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -23,87 +23,87 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "clnode-sidebar",
-          "title": "clnode",
-          "icon": "resources/clnode-icon.svg"
+          "id": "mimir-sidebar",
+          "title": "Mimir",
+          "icon": "resources/mimir-icon.svg"
         }
       ]
     },
     "views": {
-      "clnode-sidebar": [
+      "mimir-sidebar": [
         {
-          "id": "clnode-sidebar-webview",
-          "name": "clnode",
+          "id": "mimir-sidebar-webview",
+          "name": "Mimir",
           "type": "webview"
         }
       ]
     },
     "commands": [
       {
-        "command": "clnode.launchClaude",
+        "command": "mimir.launchClaude",
         "title": "Launch Claude Code Terminal",
-        "category": "clnode",
+        "category": "Mimir",
         "icon": "$(hubot)"
       },
       {
-        "command": "clnode.launchSwarm",
+        "command": "mimir.launchSwarm",
         "title": "Launch Swarm Terminal (tmux)",
-        "category": "clnode",
+        "category": "Mimir",
         "icon": "$(server-process)"
       },
       {
-        "command": "clnode.openOrchestration",
+        "command": "mimir.openOrchestration",
         "title": "Open Orchestration",
-        "category": "clnode",
+        "category": "Mimir",
         "icon": "$(pulse)"
       },
       {
-        "command": "clnode.openTasks",
+        "command": "mimir.openTasks",
         "title": "Open Tasks",
-        "category": "clnode"
+        "category": "Mimir"
       },
       {
-        "command": "clnode.openAgents",
+        "command": "mimir.openAgents",
         "title": "Open Agents",
-        "category": "clnode"
+        "category": "Mimir"
       },
       {
-        "command": "clnode.openClaudeUsage",
+        "command": "mimir.openClaudeUsage",
         "title": "Open Claude Account & Usage",
-        "category": "clnode",
+        "category": "Mimir",
         "icon": "$(graph)"
       },
       {
-        "command": "clnode.openMarks",
+        "command": "mimir.openMarks",
         "title": "Open Marks & Promotion",
-        "category": "clnode",
+        "category": "Mimir",
         "icon": "$(bookmark)"
       },
       {
-        "command": "clnode.startDaemon",
+        "command": "mimir.startDaemon",
         "title": "Start Daemon",
-        "category": "clnode"
+        "category": "Mimir"
       },
       {
-        "command": "clnode.stopDaemon",
+        "command": "mimir.stopDaemon",
         "title": "Stop Daemon",
-        "category": "clnode"
+        "category": "Mimir"
       }
     ],
     "configuration": {
-      "title": "clnode",
+      "title": "Mimir",
       "properties": {
-        "clnode.port": {
+        "mimir.port": {
           "type": "number",
           "default": 3100,
-          "description": "clnode daemon port"
+          "description": "mimir daemon port"
         },
-        "clnode.autoStartDaemon": {
+        "mimir.autoStartDaemon": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically start clnode daemon on activation"
+          "description": "Automatically start mimir daemon on activation"
         },
-        "clnode.pollingInterval": {
+        "mimir.pollingInterval": {
           "type": "number",
           "default": 5000,
           "description": "Polling interval in ms (fallback when WebSocket is unavailable)"

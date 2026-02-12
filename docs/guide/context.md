@@ -7,7 +7,7 @@ nav_order: 3
 
 # Smart Context Injection
 
-When an agent starts, clnode doesn't just dump recent context — it selects **relevant** context based on the agent's role and relationships.
+When an agent starts, mimir doesn't just dump recent context — it selects **relevant** context based on the agent's role and relationships.
 
 ## Context Sources
 

@@ -7,19 +7,19 @@ export class StatusBar {
 
   constructor(private api: ApiClient) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
-    this.item.command = "clnode.openDashboard";
+    this.item.command = "mimir.openDashboard";
     this.item.show();
   }
 
   async update(): Promise<void> {
     try {
       const stats = await this.api.stats();
-      this.item.text = `$(pulse) clnode: ${stats.active_agents} agents`;
+      this.item.text = `$(pulse) mimir: ${stats.active_agents} agents`;
       this.item.tooltip = `Sessions: ${stats.active_sessions} | Agents: ${stats.active_agents} | Click to open dashboard`;
       this.item.backgroundColor = undefined;
     } catch {
-      this.item.text = "$(circle-slash) clnode: offline";
-      this.item.tooltip = "clnode daemon is not running. Click to open dashboard.";
+      this.item.text = "$(circle-slash) mimir: offline";
+      this.item.tooltip = "mimir daemon is not running. Click to open dashboard.";
       this.item.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
     }
   }

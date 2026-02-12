@@ -80,7 +80,7 @@ For each issue:
 **When to use**: Any skill that produces categorized findings, marks,
 or observations. Adapt the fields to your domain.
 
-**clnode mark equivalent**:
+**mimir mark equivalent**:
 ```
 save_observation({
   text: "DuckDB COUNT(*) returns BigInt — wrap with Number()",

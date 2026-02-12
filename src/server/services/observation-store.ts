@@ -79,9 +79,9 @@ export async function searchObservations(
   }
 
   if (query) {
-    conditions.push("(o.title ILIKE ? OR o.subtitle ILIKE ? OR o.narrative ILIKE ?)");
+    conditions.push("(o.title ILIKE ? OR o.subtitle ILIKE ? OR o.narrative ILIKE ? OR array_to_string(o.concepts, ' ') ILIKE ?)");
     const likeQuery = `%${query}%`;
-    params.push(likeQuery, likeQuery, likeQuery);
+    params.push(likeQuery, likeQuery, likeQuery, likeQuery);
   }
 
   params.push(limit);

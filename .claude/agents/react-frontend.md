@@ -1,6 +1,6 @@
 ---
 name: react-frontend
-description: clnode Web UI development — React 19 + Vite 7 + TailwindCSS 4 dashboard, agent tree, context viewer
+description: mimir Web UI development — React 19 + Vite 7 + TailwindCSS 4 dashboard, agent tree, context viewer
 tools: Read, Edit, Write, Bash, Grep, Glob
 model: sonnet
 memory: project
@@ -10,7 +10,7 @@ skills:
   - self-mark
 ---
 
-# clnode React Frontend (Web UI)
+# mimir React Frontend (Web UI)
 
 ## Pages
 - **Dashboard**: stats cards, active sessions, recent activity, WebSocket LIVE indicator

@@ -13,7 +13,17 @@ export async function getDb(): Promise<Database> {
   if (db) return db;
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  const dbPath = path.join(DATA_DIR, "clnode.duckdb");
+  const dbPath = path.join(DATA_DIR, "mimir.duckdb");
+
+  // Auto-migration: rename old clnode.duckdb if it exists
+  const oldDb = path.join(DATA_DIR, "clnode.duckdb");
+  if (!fs.existsSync(dbPath) && fs.existsSync(oldDb)) {
+    fs.renameSync(oldDb, dbPath);
+    if (fs.existsSync(oldDb + ".wal")) {
+      fs.renameSync(oldDb + ".wal", dbPath + ".wal");
+    }
+  }
+
   db = await Database.create(dbPath);
   await initSchema(db);
   return db;

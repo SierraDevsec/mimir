@@ -1,10 +1,10 @@
 ---
 name: skill-authoring-guide
 description: >
-  Guide for creating well-structured Claude Code skills for the clnode project.
+  Guide for creating well-structured Claude Code skills for the mimir project.
   Use when creating a new skill, refactoring an existing skill, or reviewing
   skill quality. Covers Progressive Disclosure, modular file structure,
-  frontmatter conventions, and clnode-specific patterns (preloaded skills,
+  frontmatter conventions, and mimir-specific patterns (preloaded skills,
   MCP tool integration, agent frontmatter).
 ---
 
@@ -190,9 +190,9 @@ Match specificity to the task's fragility:
 
 ---
 
-## clnode-Specific Conventions
+## mimir-Specific Conventions
 
-See [references/clnode-conventions.md](references/clnode-conventions.md) for:
+See [references/mimir-conventions.md](references/mimir-conventions.md) for:
 - Preloaded vs user-invoked skills
 - MCP tool integration patterns
 - Agent frontmatter `skills:` field

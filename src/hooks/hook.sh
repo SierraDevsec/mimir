@@ -1,5 +1,5 @@
 #!/bin/bash
-# clnode hook script — Claude Code stdin→stdout protocol
+# mimir hook script — Claude Code stdin→stdout protocol
 # Claude Code → stdin(JSON) → hook.sh → curl POST daemon → stdout(JSON) → Claude Code
 #
 # Safety: always exit 0 to never block Claude Code.
@@ -7,8 +7,8 @@
 
 set -o pipefail
 
-CLNODE_PORT="${CLNODE_PORT:-3100}"
-CLNODE_URL="http://localhost:${CLNODE_PORT}"
+MIMIR_PORT="${MIMIR_PORT:-3100}"
+MIMIR_URL="http://localhost:${MIMIR_PORT}"
 
 # Read all stdin
 INPUT=$(cat 2>/dev/null) || { exit 0; }
@@ -24,7 +24,7 @@ EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // "unknown"' 2>/dev/null) || { 
 RESPONSE=$(echo "$INPUT" | curl -sf --max-time 3 -X POST \
   -H "Content-Type: application/json" \
   -d @- \
-  "${CLNODE_URL}/hooks/${EVENT}" 2>/dev/null)
+  "${MIMIR_URL}/hooks/${EVENT}" 2>/dev/null)
 
 # Return response only if non-empty and valid
 if [ $? -eq 0 ] && [ -n "$RESPONSE" ] && [ "$RESPONSE" != "{}" ]; then
