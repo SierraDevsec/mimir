@@ -8,6 +8,7 @@ const DATA_DIR = path.resolve(
 );
 
 let db: Database | null = null;
+let checkpointTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function getDb(): Promise<Database> {
   if (db) return db;
@@ -16,6 +17,17 @@ export async function getDb(): Promise<Database> {
   const dbPath = path.join(DATA_DIR, "mimir.duckdb");
   db = await Database.create(dbPath);
   await initSchema(db);
+
+  // Checkpoint after schema init to flush migrations from WAL
+  await db.exec("CHECKPOINT");
+
+  // Periodic checkpoint every 5 minutes
+  checkpointTimer = setInterval(async () => {
+    try {
+      if (db) await db.exec("CHECKPOINT");
+    } catch { /* DB may be closing */ }
+  }, 5 * 60 * 1000);
+
   return db;
 }
 
@@ -231,8 +243,24 @@ async function initSchema(db: Database): Promise<void> {
 
 }
 
-export async function closeDb(): Promise<void> {
+/** Force CHECKPOINT — call after critical writes (observations, projects) */
+export async function checkpoint(): Promise<void> {
   if (db) {
+    try { await db.exec("CHECKPOINT"); } catch { /* best effort */ }
+  }
+}
+
+export function getDataDir(): string {
+  return DATA_DIR;
+}
+
+export async function closeDb(): Promise<void> {
+  if (checkpointTimer) {
+    clearInterval(checkpointTimer);
+    checkpointTimer = null;
+  }
+  if (db) {
+    try { await db.exec("CHECKPOINT"); } catch { /* best effort */ }
     await db.close();
     db = null;
   }

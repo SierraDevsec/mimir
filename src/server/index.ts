@@ -91,6 +91,10 @@ async function main() {
   await getDb();
   console.log(`[mimir] database initialized`);
 
+  // Restore observations from JSON backup if DB is empty (WAL corruption recovery)
+  const { restoreFromBackup } = await import("./services/observation-store.js");
+  await restoreFromBackup();
+
   const server = serve({ fetch: app.fetch, port: PORT }, (info) => {
     console.log(`[mimir] server running on http://localhost:${info.port}`);
   });

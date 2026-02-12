@@ -130,6 +130,10 @@ pnpm test:watch   # Watch mode
 - Hook body field names are **snake_case**: `session_id`, `agent_id`, `agent_type`, `parent_agent_id`
 - Server port: env var `MIMIR_PORT` (default 3100)
 - DuckDB WAL corruption on force kill — delete `.wal` file to recover (uncommitted data lost)
+- **WAL repeated corruption**: If MCP server is writing to DB when daemon is killed, WAL gets corrupted. Use graceful shutdown (`mimir stop`) instead of `pkill`
+- **Daemon background execution**: Bash `&` dies when shell exits — always use `mimir start` (internally `spawn` + `detached: true`)
+- **After clnode→mimir rename**: If daemon is still running from old `clnode/` path, `dist/web` static file path mismatch causes SPA 404. Restart daemon required
+- **Cursor extension install**: `code --install-extension` only installs to VSCode. Cursor needs `cursor --install-extension` separately
 
 ## Self-Marking System
 
@@ -170,6 +174,22 @@ Promoted marks (`promoted_to IS NOT NULL`) are excluded from injection.
 Hot  (immediate)   Current session marks → auto-injected via Stage 8
 Warm (searchable)  Past session marks → auto-injected via Stage 9 + MCP pull search
 Cold (permanent)   Repeated patterns → promoted to rules/ via curator + promote_marks
+```
+
+### Observation Persistence (WAL Corruption Defense)
+
+Observations are agent memory — protected with 3-layer durability:
+
+1. **Immediate CHECKPOINT**: After `saveObservation()`, WAL → DB flush (marks are infrequent, no perf impact)
+2. **JSON backup**: Every save dumps to `data/observations-backup.json`
+3. **Auto restore**: On daemon startup, if observations table is empty and backup file exists, auto-restore
+
+```
+saveObservation() → INSERT → CHECKPOINT → backupObservations()
+                                              ↓
+                               data/observations-backup.json
+                                              ↓
+daemon restart → getDb() → restoreFromBackup() (if DB empty + backup exists)
 ```
 
 ## VSCode Extension (Primary Client)
