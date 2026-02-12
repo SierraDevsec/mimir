@@ -62,7 +62,7 @@ someone who doesn't know about it.
 "acquireVsCodeApi() can only be called once per webview — cache the result"
   concepts: [vscode, webview, api]
 
-"npx clnode start runs from npm cache, not local build — use node dist/server/index.js for dev"
+"npx mimir start runs from npm cache, not local build — use node dist/server/index.js for dev"
   concepts: [cli, npx, development]
 ```
 

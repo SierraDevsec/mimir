@@ -6,7 +6,7 @@
   "publisher": "DeeJayL",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SierraDevsec/clnode"
+    "url": "https://github.com/SierraDevsec/mimir"
   },
   "icon": "resources/mimir-icon.png",
   "engines": {

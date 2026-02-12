@@ -6,7 +6,7 @@
 #
 # Skips: non-SubagentStop events
 
-LOGFILE="/tmp/clnode-force-compress.log"
+LOGFILE="/tmp/mimir-force-compress.log"
 INPUT=$(cat 2>/dev/null) || exit 0
 
 # jq required

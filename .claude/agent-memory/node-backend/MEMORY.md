@@ -76,7 +76,7 @@
 - **observer-prompts.ts**: `buildInitPrompt()`, `buildObservationPrompt()`, `buildSummaryPrompt()` — XML output format instructions
 - **source column**: `observations.source` — `enriched` (Haiku default), `manual` (MCP save_observation)
 - **discovery_tokens**: Tracks Haiku token usage per observation/summary via `callHaiku()` return `{ text, tokens }`
-- **isObserverEnabled()**: `CLNODE_OBSERVER` env check (default: enabled). Used in hooks.ts PostToolUse + SubagentStop
+- **isObserverEnabled()**: `MIMIR_OBSERVER` env check (default: enabled). Used in hooks.ts PostToolUse + SubagentStop
 
 ### Intelligence Service v2 (Updated 2026-02-09)
 - **Stages 8-9 hints-only**: No longer inject full observation/summary content. Only show count hint (~30 tokens vs hundreds)

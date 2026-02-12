@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/screenshots/01-dashboard.png" alt="clnode Dashboard" width="800">
+  <img src="docs/screenshots/01-dashboard.png" alt="Mimir Dashboard" width="800">
 </p>
 
-<h1 align="center">clnode</h1>
+<h1 align="center">Mimir</h1>
 
 <p align="center">
   <strong>Claude Code 스웜 인텔리전스 플러그인</strong><br>
@@ -18,18 +18,18 @@
 </p>
 
 <p align="center">
-  <a href="https://sierraDevsec.github.io/clnode/">Docs</a> •
+  <a href="https://sierraDevsec.github.io/mimir/">Docs</a> •
   <a href="./README.md">English</a> •
   <a href="./README.ko.md">한국어</a>
 </p>
 
 ---
 
-## 왜 clnode인가?
+## 왜 Mimir인가?
 
 Claude Code의 멀티에이전트 모드에는 근본적인 한계가 있습니다: **에이전트끼리 대화할 수 없습니다.** 모든 결과가 Leader 에이전트를 거쳐야 하고, 리뷰 사이클을 몇 번 거치면 Leader의 컨텍스트가 폭발합니다.
 
-clnode는 Claude Code의 hook 시스템을 활용해 공유 메모리 레이어를 만들어 이 문제를 해결합니다:
+Mimir는 Claude Code의 hook 시스템을 활용해 공유 메모리 레이어를 만들어 이 문제를 해결합니다:
 
 ```
 Agent A 완료 → 요약을 DB에 저장
@@ -45,19 +45,19 @@ Leader       → 결정만 내림, 컨텍스트 최소화
 
 Claude Code에서 이 명령어를 실행하세요:
 ```
-curl -s https://raw.githubusercontent.com/SierraDevsec/clnode/main/docs/installation.md
+curl -s https://raw.githubusercontent.com/SierraDevsec/mimir/main/docs/installation.md
 ```
 
-Claude가 가이드를 읽고 자동으로 clnode를 설치합니다.
+Claude가 가이드를 읽고 자동으로 Mimir를 설치합니다.
 
 ### 수동 설치
 
 ```bash
 # 프로젝트 디렉토리에서
-npx clnode init .
+npx mimir init .
 
 # 대시보드 열기
-npx clnode ui
+npx mimir ui
 ```
 
 init 후 **Claude Code 세션을 재시작하세요** — hooks는 세션 시작 시 활성화됩니다.
@@ -65,8 +65,8 @@ init 후 **Claude Code 세션을 재시작하세요** — hooks는 세션 시작
 ### 개발용 설치
 
 ```bash
-git clone https://github.com/SierraDevsec/clnode.git
-cd clnode && pnpm install && pnpm build
+git clone https://github.com/SierraDevsec/mimir.git
+cd mimir && pnpm install && pnpm build
 node dist/cli/index.js start
 ```
 
@@ -76,7 +76,7 @@ node dist/cli/index.js start
   <img src="docs/screenshots/02-agents.png" alt="Agent Tree" width="800">
 </p>
 
-clnode는 hooks를 통해 Claude Code의 에이전트 라이프사이클 이벤트를 가로챕니다:
+Mimir는 hooks를 통해 Claude Code의 에이전트 라이프사이클 이벤트를 가로챕니다:
 
 1. **SubagentStart** → 이전 에이전트의 컨텍스트를 `additionalContext`로 주입
 2. **SubagentStop** → 에이전트의 작업 요약을 추출하여 저장
@@ -89,7 +89,7 @@ clnode는 hooks를 통해 Claude Code의 에이전트 라이프사이클 이벤�
 
 ### MCP 불필요
 
-순수 hook 기반 구현. 외부 MCP 서버 없이, 복잡한 설정 없이 — `npx clnode init .` 한 줄로 끝.
+순수 hook 기반 구현. 외부 MCP 서버 없이, 복잡한 설정 없이 — `npx mimir init .` 한 줄로 끝.
 
 ### 스마트 컨텍스트 주입
 
@@ -147,18 +147,17 @@ clnode는 hooks를 통해 Claude Code의 에이전트 라이프사이클 이벤�
 | **Tasks** | 5단계 칸반 보드 |
 | **Activity** | WebSocket 실시간 이벤트 로그 |
 
-VSCode Extension: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=DeeJayL.clnode-vscode)에서 설치
+VSCode Extension: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=DeeJayL.mimir-vscode)에서 설치
 
 ## CLI
 
 ```bash
-clnode start              # 데몬 시작 (포트 3100)
-clnode stop               # 데몬 중지
-clnode status             # 활성 세션/에이전트 표시
-clnode init [path]        # hooks 설치
-clnode init --with-skills # 에이전트 템플릿도 설치
-clnode ui                 # Web UI 열기
-clnode logs [-f]          # 데몬 로그 보기/팔로우
+mimir start              # 데몬 시작 (포트 3100)
+mimir stop               # 데몬 중지
+mimir status             # 활성 세션/에이전트 표시
+mimir init [path]        # hooks 설치
+mimir ui                 # Web UI 열기
+mimir logs [-f]          # 데몬 로그 보기/팔로우
 ```
 
 ## 요구 사항
@@ -204,7 +203,7 @@ volumes:
   - /app/node_modules  # 호스트 대신 컨테이너의 node_modules 사용
 ```
 
-### clnode 명령어 찾을 수 없음
+### mimir 명령어 찾을 수 없음
 
 `pnpm install` 후 CLI를 전역으로 링크:
 ```bash
@@ -234,22 +233,22 @@ templates/
 
 ## 삭제
 
-프로젝트에서 clnode를 완전히 제거하려면:
+프로젝트에서 Mimir를 완전히 제거하려면:
 
 ```bash
 # 1. 데몬 중지
-npx clnode stop
+npx mimir stop
 
 # 2. hooks 설정 제거
 # .claude/settings.local.json 에서 "hooks" 섹션 삭제
 
-# 3. clnode 템플릿 제거 (선택)
-rm -rf .claude/agents/reviewer.md .claude/agents/worker.md
-rm -rf .claude/skills/compress-output .claude/skills/compress-review .claude/skills/clnode-agents
-rm -rf .claude/rules/clnode-usage.md
+# 3. Mimir 템플릿 제거 (선택)
+rm -rf .claude/agents/mimir-reviewer.md .claude/agents/mimir-curator.md
+rm -rf .claude/skills/compress-output .claude/skills/compress-review .claude/skills/mimir-agents
+rm -rf .claude/rules/team.md
 
-# 4. clnode 데이터 제거 (선택 - 세션 히스토리 삭제)
-rm -rf ~/.npm/_npx/**/node_modules/clnode/data
+# 4. Mimir 데이터 제거 (선택 - 세션 히스토리 삭제)
+rm -rf ~/.npm/_npx/**/node_modules/mimir/data
 ```
 
 **참고**: hooks 제거 후 Claude Code 세션을 재시작하세요.
@@ -258,7 +257,7 @@ rm -rf ~/.npm/_npx/**/node_modules/clnode/data
 
 버그를 발견했거나 기능 요청이 있으신가요?
 
-👉 [이슈 등록하기](https://github.com/SierraDevsec/clnode/issues)
+👉 [이슈 등록하기](https://github.com/SierraDevsec/mimir/issues)
 
 ## 라이센스
 
