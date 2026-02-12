@@ -28,6 +28,7 @@ export async function truncateAllTables(db: Database): Promise<void> {
   // 의존성 역순 삭제
   await db.run("DELETE FROM session_summaries");
   await db.run("DELETE FROM observations");
+  await db.run("DELETE FROM messages");
   await db.run("DELETE FROM activity_log");
   await db.run("DELETE FROM file_changes");
   await db.run("DELETE FROM context_entries");
@@ -48,6 +49,7 @@ async function initTestSchema(db: Database): Promise<void> {
     CREATE SEQUENCE IF NOT EXISTS task_comments_seq START 1;
     CREATE SEQUENCE IF NOT EXISTS observations_seq START 1;
     CREATE SEQUENCE IF NOT EXISTS session_summaries_seq START 1;
+    CREATE SEQUENCE IF NOT EXISTS messages_seq START 1;
   `);
 
   await db.exec(`
@@ -126,6 +128,19 @@ async function initTestSchema(db: Database): Promise<void> {
       agent_id   VARCHAR,
       event_type VARCHAR NOT NULL,
       details    JSON,
+      created_at TIMESTAMP DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id         INTEGER PRIMARY KEY DEFAULT nextval('messages_seq'),
+      project_id VARCHAR NOT NULL,
+      from_name  VARCHAR NOT NULL,
+      to_name    VARCHAR NOT NULL,
+      content    TEXT NOT NULL,
+      priority   VARCHAR DEFAULT 'normal',
+      status     VARCHAR DEFAULT 'pending',
+      session_id VARCHAR,
+      read_at    TIMESTAMP,
       created_at TIMESTAMP DEFAULT now()
     );
 
