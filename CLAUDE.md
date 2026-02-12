@@ -317,8 +317,30 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 
 ## Roadmap
 
-- **Mark push/pull redesign**: Push = warning/decision only, pull = self-mark skill with search timing guide
+### Mark Search Improvement (staged)
+
+**Phase 1 — OR split search** (no dependencies):
+- Split multi-word queries into tokens, OR-combine ILIKE conditions
+- Current: `ILIKE '%agent team skill%'` → 0 results (whole-string match)
+- Target: `ILIKE '%agent%' OR ILIKE '%team%' OR ILIKE '%skill%'` → ranked results
+- File: `src/server/services/observation-store.ts` → `searchObservations()`
+
+**Phase 2 — Search skill**:
+- Add search timing guide to self-mark skill or create dedicated search skill
+- Teaches agents when to call `search_observations` (before task, before file edit, on error, on decision)
+
+**Phase 3 — Push filter**:
+- Change injection to warning/decision only (not discovery/note)
+- Files: `src/server/services/queries/relevantMarks.ts`, `intelligence.ts`
+
+**Phase 4 — Vector search** (requires embedding model):
+- DuckDB `vss` extension + FLOAT[] embedding column on observations
+- Embedding options: OpenAI text-embedding-3-small (cheap, external) or local ollama (offline, setup)
+- `saveObservation()` → generate embedding → store alongside mark
+- `searchObservations()` → embed query → cosine similarity → ranked results
+
+### Other
+
 - **MCP in subagents**: Monitor future Claude Code versions — remove curl fallback when supported
-- **Vector search**: DuckDB vss extension (evaluate when needed)
 - **Curator automation**: Periodic auto-run via cron/hook trigger
 - **Promotion Web UI**: Currently API/MCP only
