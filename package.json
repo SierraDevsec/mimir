@@ -1,0 +1,73 @@
+{
+  "name": "clnode",
+  "version": "0.1.6",
+  "description": "Claude Code swarm intelligence plugin — shared memory for multi-agent coordination via hooks + DuckDB",
+  "type": "module",
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": [
+    "claude-code",
+    "swarm",
+    "multi-agent",
+    "hooks",
+    "duckdb",
+    "coordination",
+    "cli"
+  ],
+  "bin": {
+    "clnode": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist/",
+    "templates/",
+    "src/hooks/hook.sh"
+  ],
+  "scripts": {
+    "dev": "tsx src/server/index.ts",
+    "dev:cli": "tsx src/cli/index.ts",
+    "dev:web": "vite",
+    "build": "tsc && vite build",
+    "build:server": "tsc",
+    "build:web": "vite build",
+    "postinstall": "npm rebuild duckdb 2>/dev/null || true",
+    "prepublishOnly": "pnpm build",
+    "start": "node dist/server/index.js",
+    "cli": "node dist/cli/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.27.0",
+  "dependencies": {
+    "@hono/node-server": "^1.19.9",
+    "@hono/node-ws": "^1.3.0",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@tailwindcss/vite": "^4.1.18",
+    "commander": "^14.0.3",
+    "duckdb-async": "^1.4.2",
+    "hono": "^4.11.7",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.13.0",
+    "tailwindcss": "^4.1.18",
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
+  },
+  "optionalDependencies": {
+    "@slack/bolt": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.0",
+    "@types/react": "^19.2.11",
+    "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.1.3",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  }
+}

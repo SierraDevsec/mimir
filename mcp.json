@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "clnode-messaging": {
+      "command": "node",
+      "args": ["dist/mcp/server.js"],
+      "env": {
+        "CLNODE_PORT": "3100",
+        "CLNODE_PROJECT_ID": "clnode",
+        "CLNODE_AGENT_NAME": "node-backend"
+      }
+    }
+  }
+}

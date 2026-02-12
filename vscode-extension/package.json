@@ -1,0 +1,129 @@
+{
+  "name": "clnode-vscode",
+  "displayName": "clnode for VSCode",
+  "description": "Claude Code swarm intelligence — agent monitoring, kanban board, and dashboard inside VSCode",
+  "version": "0.3.2",
+  "publisher": "DeeJayL",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SierraDevsec/clnode"
+  },
+  "icon": "resources/clnode-icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "clnode-sidebar",
+          "title": "clnode",
+          "icon": "resources/clnode-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "clnode-sidebar": [
+        {
+          "id": "clnode-sidebar-webview",
+          "name": "clnode",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "clnode.launchClaude",
+        "title": "Launch Claude Code Terminal",
+        "category": "clnode",
+        "icon": "$(hubot)"
+      },
+      {
+        "command": "clnode.launchSwarm",
+        "title": "Launch Swarm Terminal (tmux)",
+        "category": "clnode",
+        "icon": "$(server-process)"
+      },
+      {
+        "command": "clnode.openOrchestration",
+        "title": "Open Orchestration",
+        "category": "clnode",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "clnode.openTasks",
+        "title": "Open Tasks",
+        "category": "clnode"
+      },
+      {
+        "command": "clnode.openAgents",
+        "title": "Open Agents",
+        "category": "clnode"
+      },
+      {
+        "command": "clnode.openClaudeUsage",
+        "title": "Open Claude Account & Usage",
+        "category": "clnode",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "clnode.openMarks",
+        "title": "Open Marks & Promotion",
+        "category": "clnode",
+        "icon": "$(bookmark)"
+      },
+      {
+        "command": "clnode.startDaemon",
+        "title": "Start Daemon",
+        "category": "clnode"
+      },
+      {
+        "command": "clnode.stopDaemon",
+        "title": "Stop Daemon",
+        "category": "clnode"
+      }
+    ],
+    "configuration": {
+      "title": "clnode",
+      "properties": {
+        "clnode.port": {
+          "type": "number",
+          "default": 3100,
+          "description": "clnode daemon port"
+        },
+        "clnode.autoStartDaemon": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start clnode daemon on activation"
+        },
+        "clnode.pollingInterval": {
+          "type": "number",
+          "default": 5000,
+          "description": "Polling interval in ms (fallback when WebSocket is unavailable)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild --bundle src/extension.ts --outfile=dist/extension.js --format=cjs --platform=node --external:vscode --sourcemap",
+    "watch": "esbuild --bundle src/extension.ts --outfile=dist/extension.js --format=cjs --platform=node --external:vscode --sourcemap --watch",
+    "package": "pnpm build && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.18.0",
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}

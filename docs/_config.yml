@@ -1,0 +1,27 @@
+title: clnode
+description: Claude Code Swarm Intelligence Plugin
+remote_theme: just-the-docs/just-the-docs
+
+url: https://sierradevsec.github.io
+baseurl: /clnode
+
+color_scheme: dark
+
+aux_links:
+  GitHub: https://github.com/SierraDevsec/clnode
+
+nav_external_links:
+  - title: npm
+    url: https://www.npmjs.com/package/clnode
+
+search_enabled: true
+heading_anchors: true
+
+back_to_top: true
+back_to_top_text: "Back to top"
+
+footer_content: "clnode &copy; SierraDevsec. Source Available License."
+
+exclude:
+  - screenshots/
+  - installation.md

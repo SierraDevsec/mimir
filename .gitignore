@@ -1,0 +1,14 @@
+node_modules/
+dist/
+data/
+*.log
+.DS_Store
+.env
+.idea/
+.vscode/
+.claude/settings.local.json
+.mcp.json
+.playwright-mcp/
+*.png
+*.jpg
+*.jpeg

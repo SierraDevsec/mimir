@@ -1,0 +1,39 @@
+clnode — Source Available License
+
+Copyright (c) 2025 clnode contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, and distribute the Software for non-commercial purposes,
+subject to the following conditions:
+
+1. NON-COMMERCIAL USE
+   The Software may be used freely for personal, educational, research,
+   and open-source projects at no cost.
+
+2. COMMERCIAL USE REQUIRES LICENSE
+   Any commercial use of the Software — including but not limited to
+   incorporating it into a paid product or service, using it in a
+   for-profit business environment, or offering it as part of a
+   managed/hosted service — requires prior written permission from
+   the copyright holders. Contact the maintainers to obtain a
+   commercial license.
+
+3. ANTHROPIC EXCEPTION
+   Anthropic, PBC and its affiliates are granted an irrevocable,
+   perpetual, worldwide, royalty-free license to use, copy, modify,
+   distribute, and create derivative works of the Software for any
+   purpose, including commercial use, without restriction.
+
+4. ATTRIBUTION
+   The above copyright notice and this permission notice shall be
+   included in all copies or substantial portions of the Software.
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+   IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+   CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+   TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
