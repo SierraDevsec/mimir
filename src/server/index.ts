@@ -91,9 +91,13 @@ async function main() {
   await getDb();
   console.log(`[mimir] database initialized`);
 
-  // Restore observations from JSON backup if DB is empty (WAL corruption recovery)
-  const { restoreFromBackup } = await import("./services/observation-store.js");
-  await restoreFromBackup();
+  // End zombie sessions/agents from previous daemon run
+  const db = await getDb();
+  const zombieSessions = await db.all(`UPDATE sessions SET status = 'ended', ended_at = now() WHERE status = 'active' RETURNING id`);
+  const zombieAgents = await db.all(`UPDATE agents SET status = 'completed', completed_at = now() WHERE status = 'active' RETURNING id`);
+  if (zombieSessions.length > 0 || zombieAgents.length > 0) {
+    console.log(`[mimir] Cleaned up ${zombieSessions.length} zombie sessions, ${zombieAgents.length} zombie agents`);
+  }
 
   // Backfill embeddings for observations missing them (async, non-blocking)
   const { isEmbeddingEnabled, backfillEmbeddings, ensureHnswIndex } = await import("./services/embedding.js");

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getAllSessions, getActiveSessions, getSession, getTotalSessionsCount, getActiveSessionsCount, getSessionsByProject, getActiveSessionsByProject, getSessionsCountByProject, getActiveSessionsCountByProject } from "../services/session.js";
+import { getAllSessions, getActiveSessions, getSession, endSession, getTotalSessionsCount, getActiveSessionsCount, getSessionsByProject, getActiveSessionsByProject, getSessionsCountByProject, getActiveSessionsCountByProject } from "../services/session.js";
 import { getAllAgents, getActiveAgents, getAgentsBySession, getAgent, stopAgent, updateAgentSummary, getTotalAgentsCount, getActiveAgentsCount, deleteAgent, getAgentsByProject, getActiveAgentsByProject, getAgentsCountByProject, getActiveAgentsCountByProject } from "../services/agent.js";
 import { getContextBySession, getContextByAgent, getTotalContextEntriesCount, deleteContextByType, getContextEntriesCountByProject } from "../services/context.js";
 import { getFileChangesBySession, getFileChangesByAgent, getTotalFileChangesCount, getFileChangesCountByProject } from "../services/filechange.js";
@@ -57,6 +57,18 @@ api.delete("/sessions/:id/context", async (c) => {
 });
 api.get("/sessions/:id/files", async (c) => c.json(await getFileChangesBySession(c.req.param("id"))));
 api.get("/sessions/:id/activities", async (c) => c.json(await getActivitiesBySession(c.req.param("id"))));
+
+api.patch("/sessions/:id", async (c) => {
+  const id = c.req.param("id");
+  const session = await getSession(id);
+  if (!session) return c.json({ error: "not found" }, 404);
+  const body = await c.req.json();
+  if (body.status === "ended") {
+    await endSession(id);
+    broadcast("SessionEnd", { session_id: id });
+  }
+  return c.json({ ok: true });
+});
 
 api.get("/agents", async (c) => {
   const active = c.req.query("active");

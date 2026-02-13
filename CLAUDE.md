@@ -215,23 +215,19 @@ Cold (permanent)   Repeated patterns → promoted to rules/ via curator + promot
 should NOT stay as marks — promote to CLAUDE.md or `rules/`. Marks are for transient knowledge
 that may become stale. If it's always true, put it where every session always reads it.
 
-### Observation Persistence (WAL Corruption Defense)
+### Observation Persistence
 
-Observations are agent memory — protected with 3-layer durability:
-
-1. **Immediate CHECKPOINT**: After `saveObservation()`, WAL → DB flush (marks are infrequent, no perf impact)
-2. **JSON backup**: Every save dumps to `data/observations-backup.json`
-3. **Auto restore**: On daemon startup, if observations table is empty and backup file exists, auto-restore
+Observations are agent memory — protected by immediate CHECKPOINT:
 
 ```
-saveObservation() → INSERT → CHECKPOINT → backupObservations()
-                                    ↓              ↓
-                              async embedding   data/observations-backup.json
-                              (CF bge-m3)              ↓
-                                    ↓         daemon restart → restoreFromBackup()
-                              UPDATE embedding              → backfillEmbeddings()
-                                                            → ensureHnswIndex()
+saveObservation() → INSERT → CHECKPOINT (WAL → DB flush)
+                                 ↓
+                           async embedding (CF bge-m3) → UPDATE embedding
+                                 ↓
+                           daemon restart → backfillEmbeddings() → ensureHnswIndex()
 ```
+
+CHECKPOINT after every write ensures no data loss on crash. Embeddings are regenerable via backfill.
 
 ## VSCode Extension (Primary Client)
 

@@ -2,14 +2,10 @@
  * DuckDB CRUD for observations (agent self-marks).
  * Agents mark via MCP tool → stored here → surfaced to future agents.
  *
- * Persistence: After each write, CHECKPOINT flushes WAL → DB.
- * Backup: JSON file (data/observations-backup.json) updated after each write.
- * Recovery: On startup, if observations table is empty but backup exists, restore.
+ * Persistence: After each write, CHECKPOINT flushes WAL → DB immediately.
  */
-import { getDb, checkpoint, getDataDir } from "../db.js";
+import { getDb, checkpoint } from "../db.js";
 import { isEmbeddingEnabled, generateEmbedding, updateObservationEmbedding, buildEmbeddingText } from "./embedding.js";
-import fs from "node:fs";
-import path from "node:path";
 
 export interface MarkInput {
   type: string;
@@ -63,8 +59,6 @@ export async function saveObservation(
 
   // Flush WAL → DB immediately (observations are critical memory)
   await checkpoint();
-  // Update JSON backup asynchronously
-  backupObservations(projectId).catch(() => {});
 
   // Generate embedding async (don't block save)
   if (isEmbeddingEnabled()) {
@@ -129,7 +123,7 @@ async function searchByEmbedding(
   return db.all(
     `SELECT o.id, o.session_id, o.agent_id, o.project_id, o.type, o.title,
             o.subtitle, o.narrative, o.facts, o.concepts, o.files_read,
-            o.files_modified, o.discovery_tokens, o.source, o.created_at,
+            o.files_modified, o.discovery_tokens, o.source, o.status, o.created_at,
             array_cosine_distance(o.embedding, ${arrLiteral}) AS distance
      FROM observations o
      WHERE ${conditions.join(" AND ")}
@@ -273,97 +267,3 @@ export async function getObservationsByProject(
   ) as Promise<ObservationRow[]>;
 }
 
-// --- JSON Backup / Restore ---
-
-const BACKUP_FILE = () => path.join(getDataDir(), "observations-backup.json");
-
-interface BackupEntry {
-  session_id: string;
-  agent_id: string | null;
-  project_id: string;
-  type: string;
-  title: string;
-  subtitle: string | null;
-  narrative: string | null;
-  facts: string[] | null;
-  concepts: string[] | null;
-  files_read: string[] | null;
-  files_modified: string[] | null;
-  discovery_tokens: number;
-  source: string;
-  status: string;
-  created_at: string;
-}
-
-/** Dump all observations to JSON backup file (excludes embedding — too large, regenerable) */
-async function backupObservations(projectId?: string): Promise<void> {
-  const db = await getDb();
-  const cols = `id, session_id, agent_id, project_id, type, title, subtitle, narrative,
-    facts, concepts, files_read, files_modified, discovery_tokens, source, status, created_at, promoted_to`;
-  const rows = projectId
-    ? await db.all(`SELECT ${cols} FROM observations WHERE project_id = ? ORDER BY id`, projectId)
-    : await db.all(`SELECT ${cols} FROM observations ORDER BY id`);
-
-  const backupPath = BACKUP_FILE();
-  // Merge with existing backup (other projects)
-  let existing: BackupEntry[] = [];
-  try {
-    existing = JSON.parse(fs.readFileSync(backupPath, "utf-8"));
-    if (projectId) {
-      existing = existing.filter((e: BackupEntry) => e.project_id !== projectId);
-    }
-  } catch { /* no existing backup */ }
-
-  const merged = [...existing, ...(rows as BackupEntry[])];
-  fs.writeFileSync(backupPath, JSON.stringify(merged, null, 2));
-}
-
-/** Restore observations from JSON backup (called on startup if DB is empty) */
-export async function restoreFromBackup(): Promise<number> {
-  const backupPath = BACKUP_FILE();
-  if (!fs.existsSync(backupPath)) return 0;
-
-  const db = await getDb();
-  const countResult = await db.all(`SELECT COUNT(*) as cnt FROM observations`);
-  const dbCount = Number((countResult[0] as { cnt: number | bigint }).cnt);
-  if (dbCount > 0) return 0; // DB has data, no restore needed
-
-  let entries: BackupEntry[];
-  try {
-    entries = JSON.parse(fs.readFileSync(backupPath, "utf-8"));
-  } catch { return 0; }
-
-  if (!Array.isArray(entries) || entries.length === 0) return 0;
-
-  // Deduplicate by (project_id, type, title)
-  const seen = new Set<string>();
-  const unique = entries.filter(e => {
-    const key = `${e.project_id}::${e.type}::${e.title}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  console.log(`[mimir] Restoring ${unique.length} observations from backup...`);
-
-  for (const e of unique) {
-    const toArr = (arr: string[] | null) =>
-      arr && arr.length > 0
-        ? `[${arr.map(s => `'${String(s).replace(/'/g, "''")}'`).join(",")}]`
-        : null;
-
-    await db.run(
-      `INSERT INTO observations (session_id, agent_id, project_id, type, title, subtitle, narrative,
-        facts, concepts, files_read, files_modified, discovery_tokens, source, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      e.session_id, e.agent_id, e.project_id,
-      e.type, e.title, e.subtitle ?? null, e.narrative ?? null,
-      toArr(e.facts), toArr(e.concepts), toArr(e.files_read), toArr(e.files_modified),
-      e.discovery_tokens ?? 0, e.source ?? "self-mark", e.status ?? "active"
-    );
-  }
-
-  await checkpoint();
-  console.log(`[mimir] Restored ${entries.length} observations successfully.`);
-  return entries.length;
-}
