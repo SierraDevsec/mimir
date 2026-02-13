@@ -302,12 +302,13 @@ export const api = {
   // Agent Registry (swarm/tmux agents)
   registry: (projectId: string) => get<RegisteredAgent[]>(`/registry?project_id=${projectId}`),
   // Observations
-  observations: (projectId: string, query?: string, type?: string, agent?: string, limit?: number) => {
+  observations: (projectId: string, query?: string, type?: string, agent?: string, limit?: number, offset?: number) => {
     const params = new URLSearchParams({ project_id: projectId });
     if (query) params.set("query", query);
     if (type) params.set("type", type);
     if (agent) params.set("agent", agent);
     if (limit) params.set("limit", String(limit));
+    if (offset) params.set("offset", String(offset));
     return get<Observation[]>(`/observations?${params.toString()}`);
   },
   observationDetails: (ids: number[]) => get<Observation[]>(`/observations/details?ids=${ids.join(",")}`),

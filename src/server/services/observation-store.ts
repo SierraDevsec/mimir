@@ -269,12 +269,12 @@ export async function updateObservation(
 }
 
 export async function getObservationsByProject(
-  projectId: string, limit: number = 50
+  projectId: string, limit: number = 50, offset: number = 0
 ): Promise<ObservationRow[]> {
   const db = await getDb();
   return db.all(
-    `SELECT * FROM observations WHERE project_id = ? ORDER BY created_at DESC LIMIT ?`,
-    projectId, limit
+    `SELECT * FROM observations WHERE project_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    projectId, limit, offset
   ) as Promise<ObservationRow[]>;
 }
 

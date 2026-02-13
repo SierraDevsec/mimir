@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, Outlet, useSearchParams } from "react-router-dom";
+import { NavLink, Outlet, useSearchParams, useLocation } from "react-router-dom";
 import { RiDashboardLine, RiRobotLine, RiTaskLine, RiTeamLine, RiEyeLine, RiMagicLine, RiShieldCheckLine } from "react-icons/ri";
 import { useProject } from "../lib/ProjectContext";
 
@@ -16,6 +16,7 @@ const links = [
 export default function Layout() {
   const { projects, selected, setSelected } = useProject();
   const [searchParams] = useSearchParams();
+  const { pathname } = useLocation();
   const isEmbed = searchParams.get("embed") === "true";
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export default function Layout() {
   if (isEmbed) {
     return (
       <div className="h-screen bg-transparent">
-        <main className="h-full overflow-hidden">
+        <main className={`h-full ${pathname === "/swarm" ? "overflow-hidden" : "overflow-auto p-6"}`}>
           <Outlet />
         </main>
       </div>

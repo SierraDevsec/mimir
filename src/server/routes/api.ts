@@ -551,12 +551,13 @@ api.get("/observations", async (c) => {
   const type = c.req.query("type");
   const agent = c.req.query("agent");
   const limit = parseInt(c.req.query("limit") ?? "20", 10);
+  const offset = parseInt(c.req.query("offset") ?? "0", 10);
   const days = parseInt(c.req.query("days") ?? "90", 10);
 
   if (query || type || agent) {
     return c.json(await searchObservations(projectId, query ?? "", type ?? undefined, agent ?? undefined, limit, days));
   }
-  return c.json(await getObservationsByProject(projectId, limit));
+  return c.json(await getObservationsByProject(projectId, limit, offset));
 });
 
 api.get("/observations/promotion-candidates", async (c) => {

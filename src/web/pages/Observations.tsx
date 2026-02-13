@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { api, type Observation, type PromotionCandidate, formatDateTime } from "../lib/api";
 import { useProject } from "../lib/ProjectContext";
 import { useQuery } from "../lib/useQuery";
@@ -19,16 +19,59 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 function MarksList({ projectId }: { projectId: string }) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [observations, setObservations] = useState<Observation[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const fetcher = useCallback(async () => {
-    return api.observations(projectId, search || undefined, typeFilter || undefined);
+  const loadPage = useCallback(async (offset: number, append: boolean) => {
+    setLoading(true);
+    try {
+      const data = await api.observations(
+        projectId, search || undefined, typeFilter || undefined, undefined, PAGE_SIZE, offset
+      );
+      if (append) {
+        setObservations(prev => [...prev, ...data]);
+      } else {
+        setObservations(data);
+      }
+      setHasMore(data.length >= PAGE_SIZE);
+    } catch (error) {
+      console.error("Failed to load observations:", error);
+    } finally {
+      setLoading(false);
+    }
   }, [projectId, search, typeFilter]);
 
-  const { data: observations, loading } = useQuery<Observation[]>({ fetcher, deps: [projectId, search, typeFilter] });
+  // Reset on filter change
+  useEffect(() => {
+    setObservations([]);
+    setHasMore(true);
+    loadPage(0, false);
+  }, [loadPage]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          loadPage(observations.length, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loading, observations.length, loadPage]);
 
   return (
     <div className="space-y-4">
@@ -52,9 +95,9 @@ function MarksList({ projectId }: { projectId: string }) {
         </select>
       </div>
 
-      {loading && !observations ? (
+      {loading && observations.length === 0 ? (
         <div className="text-zinc-500 text-sm py-8 text-center">Loading...</div>
-      ) : !observations?.length ? (
+      ) : observations.length === 0 ? (
         <div className="text-zinc-500 text-sm py-8 text-center">
           No marks yet. Marks are created by agents during work via self-marking.
         </div>
@@ -119,6 +162,14 @@ function MarksList({ projectId }: { projectId: string }) {
               )}
             </div>
           ))}
+
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} className="py-4 text-center">
+            {loading && <span className="text-zinc-500 text-sm">Loading more...</span>}
+            {!hasMore && observations.length > 0 && (
+              <span className="text-zinc-600 text-xs">{observations.length} marks total</span>
+            )}
+          </div>
         </div>
       )}
     </div>
