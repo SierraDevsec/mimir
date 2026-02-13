@@ -2,8 +2,8 @@
 
 ```
 Leader (orchestrator / opus)
-├── backend-dev (sonnet) — Backend development specialist
-├── researcher (sonnet) — Research specialist
+├── backend-dev (sonnet) — >
+├── researcher (sonnet) — >
 ```
 
 ## Communication

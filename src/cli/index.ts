@@ -552,7 +552,7 @@ program
       { stdio: "ignore" }
     );
     execSync(
-      `tmux send-keys -t '${sessionName}' 'claude --model ${leaderModel}' Enter`,
+      `tmux send-keys -t '${sessionName}' 'unset CLAUDECODE && claude --model ${leaderModel}' Enter`,
       { stdio: "ignore" }
     );
     console.log(`[mimir] tmux session: ${sessionName}`);
@@ -566,7 +566,7 @@ program
         { stdio: "ignore" }
       );
       execSync(
-        `tmux send-keys -t '${sessionName}' 'claude --model ${model}' Enter`,
+        `tmux send-keys -t '${sessionName}' 'unset CLAUDECODE && claude --model ${model}' Enter`,
         { stdio: "ignore" }
       );
       console.log(`[mimir] Agent "${name}" (${model}) → pane ${i + 1}`);

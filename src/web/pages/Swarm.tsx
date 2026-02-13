@@ -202,21 +202,20 @@ export default function Swarm() {
       });
 
       const result = await res.json();
-      if (result.ok) {
-        setShowStartModal(false);
-        setSelectedAgentDefs(new Set());
-        setInitialTask("");
-        setSkipPermissions(false);
-        loadAgents();
-        loadSwarmSessions();
-      } else {
+      if (!result.ok) {
         alert(`Failed to start swarm: ${result.error}`);
       }
     } catch (error) {
       console.error("Failed to start swarm:", error);
       alert("Failed to start swarm. Check console for details.");
     } finally {
+      setShowStartModal(false);
+      setSelectedAgentDefs(new Set());
+      setInitialTask("");
+      setSkipPermissions(false);
       setIsStarting(false);
+      loadAgents();
+      loadSwarmSessions();
     }
   }
 
