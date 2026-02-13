@@ -167,6 +167,7 @@ export async function startClaudeSession(
   const claudeCmd = skipPermissions ? `claude --dangerously-skip-permissions` : `claude`;
   const command = [
     `cd "${projectPath}"`,
+    `unset CLAUDECODE`,
     `export MIMIR_AGENT_NAME="${agentName}"`,
     `export MIMIR_PROJECT_ID="${projectId}"`,
     claudeCmd,
