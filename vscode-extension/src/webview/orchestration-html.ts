@@ -28,58 +28,6 @@ export function getOrchestrationHtml(port: number, projectId: string): string {
       height: 100vh;
     }
 
-    /* StatusBar — matches Electron's StatusBar.tsx */
-    .statusbar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 0 16px;
-      height: 24px;
-      flex-shrink: 0;
-      background: rgba(23,23,23,0.8);
-      border-bottom: 1px solid #262626;
-      font-size: 11px;
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-      user-select: none;
-    }
-    .statusbar .logo {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .statusbar .logo svg { width: 14px; height: 14px; }
-    .statusbar .logo .name { color: #a3a3a3; font-weight: 500; }
-    .statusbar .project-name { color: #525252; }
-    .statusbar .spacer { flex: 1; }
-    .statusbar .sep { color: #404040; }
-    .statusbar .metric {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .statusbar .metric-label { color: #737373; }
-    .statusbar .metric-value { font-weight: 600; }
-    .statusbar .minibar {
-      display: inline-flex;
-      align-items: center;
-      width: 50px;
-      height: 5px;
-      border-radius: 2px;
-      background: #404040;
-      overflow: hidden;
-    }
-    .statusbar .minibar-fill {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.3s;
-    }
-    .pct-green { color: #4ade80; }
-    .pct-yellow { color: #facc15; }
-    .pct-red { color: #f87171; }
-    .bar-green { background: #4ade80; }
-    .bar-yellow { background: #facc15; }
-    .bar-red { background: #f87171; }
-
     /* Tab bar — matches Electron's Layout.tsx swarm tab toggle */
     .tabbar {
       display: flex;
@@ -159,46 +107,6 @@ export function getOrchestrationHtml(port: number, projectId: string): string {
 </head>
 <body>
   <div class="container">
-    <!-- StatusBar -->
-    <div class="statusbar" id="statusbar">
-      <div class="logo">
-        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <line x1="16" y1="6" x2="7" y2="18" stroke="#a3a3a3" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="16" y1="6" x2="25" y2="18" stroke="#a3a3a3" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="7" y1="18" x2="25" y2="18" stroke="#a3a3a3" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="7" y1="18" x2="16" y2="27" stroke="#a3a3a3" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="25" y1="18" x2="16" y2="27" stroke="#a3a3a3" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="16" y1="6" x2="16" y2="27" stroke="#a3a3a3" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="16" cy="6" r="3" fill="#a3a3a3"/>
-          <circle cx="7" cy="18" r="2.5" fill="#a3a3a3"/>
-          <circle cx="25" cy="18" r="2.5" fill="#a3a3a3"/>
-          <circle cx="16" cy="27" r="2.5" fill="#a3a3a3"/>
-        </svg>
-        <span class="name">MIMIR</span>
-      </div>
-      <span class="project-name" id="project-name">${projectId}</span>
-      <span class="spacer"></span>
-
-      <span class="metric">
-        <span class="metric-label">Context:</span>
-        <span class="metric-value pct-green" id="context-pct">0%</span>
-        <span class="minibar"><span class="minibar-fill bar-green" id="context-bar" style="width:0%"></span></span>
-      </span>
-      <span class="sep">|</span>
-      <span class="metric">
-        <span class="metric-label">Session:</span>
-        <span class="metric-value pct-green" id="session-pct">0%</span>
-        <span class="minibar"><span class="minibar-fill bar-green" id="session-bar" style="width:0%"></span></span>
-        <span class="metric-label" id="session-reset"></span>
-      </span>
-      <span class="sep">|</span>
-      <span class="metric">
-        <span class="metric-label">Week:</span>
-        <span class="metric-value pct-green" id="week-pct">0%</span>
-        <span class="minibar"><span class="minibar-fill bar-green" id="week-bar" style="width:0%"></span></span>
-      </span>
-    </div>
-
     <!-- Chat/Terminal Tab Bar -->
     <div class="tabbar">
       <button class="tab-btn active" id="tab-chat" onclick="switchTab('chat')">Chat</button>
@@ -242,38 +150,6 @@ export function getOrchestrationHtml(port: number, projectId: string): string {
       vscode.postMessage({ command: 'launchSwarm' });
     }
 
-    // Poll statusline data
-    async function pollStatusline() {
-      try {
-        const resp = await fetch('http://localhost:${port}/api/statusline/${encodeURIComponent(projectId)}');
-        if (!resp.ok) return;
-        const data = await resp.json();
-        if (!data) return;
-
-        updateMetric('context', data.context_pct);
-        updateMetric('session', data.rolling_5h_pct);
-        updateMetric('week', data.weekly_pct);
-
-        const resetEl = document.getElementById('session-reset');
-        if (data.session_reset) {
-          resetEl.textContent = 'reset ' + data.session_reset;
-        }
-      } catch { /* ignore */ }
-    }
-
-    function updateMetric(name, pct) {
-      const p = Math.max(0, Math.min(100, pct || 0));
-      const colorClass = p > 80 ? 'red' : p > 50 ? 'yellow' : 'green';
-
-      const pctEl = document.getElementById(name + '-pct');
-      const barEl = document.getElementById(name + '-bar');
-
-      pctEl.textContent = p + '%';
-      pctEl.className = 'metric-value pct-' + colorClass;
-      barEl.className = 'minibar-fill bar-' + colorClass;
-      barEl.style.width = p + '%';
-    }
-
     // Handle messages from extension
     window.addEventListener('message', (e) => {
       const msg = e.data;
@@ -282,9 +158,6 @@ export function getOrchestrationHtml(port: number, projectId: string): string {
       }
     });
 
-    // Start polling
-    pollStatusline();
-    setInterval(pollStatusline, 2000);
   </script>
 </body>
 </html>`;
