@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useSearchParams } from "react-router-dom";
-import { RiDashboardLine, RiRobotLine, RiTaskLine, RiTeamLine, RiEyeLine } from "react-icons/ri";
+import { RiDashboardLine, RiRobotLine, RiTaskLine, RiTeamLine, RiEyeLine, RiMagicLine, RiShieldCheckLine } from "react-icons/ri";
 import { useProject } from "../lib/ProjectContext";
 
 const links = [
@@ -9,6 +9,8 @@ const links = [
   { to: "/swarm", label: "Swarm", icon: RiTeamLine },
   { to: "/tasks", label: "Tasks", icon: RiTaskLine },
   { to: "/observations", label: "Observations", icon: RiEyeLine },
+  { to: "/skills", label: "Skills", icon: RiMagicLine },
+  { to: "/curation", label: "Curation", icon: RiShieldCheckLine },
 ];
 
 export default function Layout() {

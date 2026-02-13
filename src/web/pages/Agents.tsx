@@ -1,15 +1,14 @@
-import { useState, useCallback } from "react";
-import { api, type Agent, type AgentDefinition, type RegisteredAgent, type Session, formatDateTime, formatTime } from "../lib/api";
+import { useState, useCallback, useMemo } from "react";
+import { api, type Agent, type AgentDefinition, type Skill, type RegisteredAgent, type Session, formatDateTime, formatTime } from "../lib/api";
 import { useProject } from "../lib/ProjectContext";
 import { useQuery } from "../lib/useQuery";
 import { Card } from "../components/Card";
 import { Badge, statusVariant } from "../components/Badge";
 import { EmptyState } from "../components/EmptyState";
 import { AgentDetail } from "../components/AgentDetail";
-import { RiAddLine, RiCloseLine, RiDeleteBinLine, RiEditLine, RiRobot2Line } from "react-icons/ri";
+import { RiAddLine, RiCloseLine, RiDeleteBinLine, RiEditLine, RiRobot2Line, RiTeamLine, RiDatabase2Line } from "react-icons/ri";
 
 const AVAILABLE_TOOLS = ["Read", "Write", "Edit", "Grep", "Glob", "Bash"];
-const AVAILABLE_SKILLS = ["compress-output", "compress-review"];
 const PERMISSION_MODES = ["default", "plan", "bypassPermissions"];
 const MODELS = [
   { value: "opus", label: "Opus" },
@@ -43,13 +42,105 @@ const emptyModal: ModalState = {
   description: "",
   model: "sonnet",
   tools: ["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
-  skills: ["compress-output"],
+  skills: [],
   memory: "project",
   permissionMode: "default",
   body: "",
 };
 
-// --- Running Agents section (collapsed by default) ---
+// Parse leader→specialist relationships from agent body text
+function parseTeamHierarchy(definitions: AgentDefinition[]): Map<string, string[]> {
+  const hierarchy = new Map<string, string[]>();
+  for (const def of definitions) {
+    const taskMatches = def.body.matchAll(/Task\(([^)]+)\)/g);
+    const children: string[] = [];
+    for (const m of taskMatches) {
+      const args = m[1];
+      // Extract subagent_type from Task(subagent_type) patterns
+      const typeMatch = args.match(/(?:subagent_type\s*[:=]\s*)?["']?(\w[\w-]*)["']?/);
+      if (typeMatch) {
+        const childName = typeMatch[1];
+        // Only include if it's actually a defined agent
+        if (definitions.some((d) => d.name === childName)) {
+          children.push(childName);
+        }
+      }
+    }
+    if (children.length > 0) {
+      hierarchy.set(def.name, children);
+    }
+  }
+  return hierarchy;
+}
+
+// --- Team Hierarchy Section ---
+
+function TeamHierarchy({ definitions }: { definitions: AgentDefinition[] }) {
+  const hierarchy = useMemo(() => parseTeamHierarchy(definitions), [definitions]);
+  const leaders = definitions.filter((d) => hierarchy.has(d.name));
+  const managedAgents = new Set(Array.from(hierarchy.values()).flat());
+  const standalone = definitions.filter((d) => !hierarchy.has(d.name) && !managedAgents.has(d.name));
+
+  if (leaders.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <RiTeamLine className="w-5 h-5 text-emerald-400" />
+        <h3 className="text-lg font-semibold text-zinc-100">Team Structure</h3>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {leaders.map((leader) => {
+          const children = hierarchy.get(leader.name) ?? [];
+          return (
+            <Card key={leader.name}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-xs px-2 py-0.5 rounded border ${MODEL_COLORS[leader.model] ?? MODEL_COLORS.sonnet}`}>
+                  {leader.model}
+                </span>
+                <span className="font-semibold text-zinc-100">{leader.name}</span>
+              </div>
+              <p className="text-xs text-zinc-500 mb-3 line-clamp-1">{leader.description}</p>
+              <div className="space-y-1">
+                {children.map((childName, i) => {
+                  const child = definitions.find((d) => d.name === childName);
+                  return (
+                    <div key={childName} className="flex items-center gap-2 ml-2">
+                      <span className="text-zinc-600 text-xs">{i === children.length - 1 ? "\u2514\u2500" : "\u251c\u2500"}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border ${MODEL_COLORS[child?.model ?? "sonnet"] ?? MODEL_COLORS.sonnet}`}>
+                        {child?.model ?? "sonnet"}
+                      </span>
+                      <span className="text-sm text-zinc-300">{childName}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          );
+        })}
+        {standalone.length > 0 && (
+          <Card>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="font-semibold text-zinc-400">Standalone</span>
+            </div>
+            <div className="space-y-1">
+              {standalone.map((agent) => (
+                <div key={agent.name} className="flex items-center gap-2">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border ${MODEL_COLORS[agent.model] ?? MODEL_COLORS.sonnet}`}>
+                    {agent.model}
+                  </span>
+                  <span className="text-sm text-zinc-300">{agent.name}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Main Component ---
 
 type AgentsData = { sessions: Session[]; agentsBySession: Record<string, Agent[]> };
 
@@ -62,6 +153,14 @@ export default function Agents() {
     return api.agentDefs(projectId);
   }, [projectId]);
   const { data: definitions, reload: reloadDefs } = useQuery<AgentDefinition[]>({ fetcher: defFetcher, deps: [projectId] });
+
+  // Skills (for modal dropdown)
+  const skillFetcher = useCallback(async () => {
+    if (!projectId) return [];
+    try { return await api.skills(projectId); } catch { return []; }
+  }, [projectId]);
+  const { data: availableSkills = [] } = useQuery<Skill[]>({ fetcher: skillFetcher, deps: [projectId] });
+  const skillNames = useMemo(() => availableSkills.map((s) => s.name), [availableSkills]);
 
   // Modal
   const [modal, setModal] = useState<ModalState | null>(null);
@@ -197,6 +296,9 @@ export default function Agents() {
 
   return (
     <div className="space-y-6">
+      {/* Team Hierarchy */}
+      {definitions && definitions.length > 0 && <TeamHierarchy definitions={definitions} />}
+
       {/* Agent Definitions */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -224,20 +326,37 @@ export default function Agents() {
                     <RiRobot2Line className="w-5 h-5 text-emerald-400" />
                     <h3 className="font-semibold text-white">{def.name}</h3>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded border ${MODEL_COLORS[def.model] ?? MODEL_COLORS.sonnet}`}>
-                    {def.model}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {def.memory === "project" && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-700/50 flex items-center gap-1">
+                        <RiDatabase2Line className="w-3 h-3" />
+                        memory
+                      </span>
+                    )}
+                    <span className={`text-xs px-2 py-0.5 rounded border ${MODEL_COLORS[def.model] ?? MODEL_COLORS.sonnet}`}>
+                      {def.model}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-sm text-zinc-400 mb-3 line-clamp-2">
                   {def.description || "No description"}
                 </p>
-                <div className="flex flex-wrap gap-1 mb-3">
+                <div className="flex flex-wrap gap-1 mb-1">
                   {def.tools.map((tool) => (
                     <span key={tool} className="text-xs px-1.5 py-0.5 bg-zinc-800 text-zinc-400 rounded">
                       {tool}
                     </span>
                   ))}
                 </div>
+                {def.skills.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {def.skills.map((skill) => (
+                      <span key={skill} className="text-xs px-1.5 py-0.5 bg-blue-900/30 text-blue-300 rounded">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => openEditModal(def)}
@@ -369,11 +488,11 @@ export default function Agents() {
                 </div>
               </div>
 
-              {/* Skills */}
+              {/* Skills (dynamic from API) */}
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">Skills</label>
                 <div className="flex flex-wrap gap-2">
-                  {AVAILABLE_SKILLS.map((skill) => (
+                  {skillNames.length > 0 ? skillNames.map((skill) => (
                     <label key={skill} className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
                       <input
                         type="checkbox"
@@ -383,7 +502,9 @@ export default function Agents() {
                       />
                       {skill}
                     </label>
-                  ))}
+                  )) : (
+                    <span className="text-xs text-zinc-500">No skills installed</span>
+                  )}
                 </div>
               </div>
 

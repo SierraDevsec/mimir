@@ -8,6 +8,8 @@ import Tasks from "./pages/Tasks";
 import Activity from "./pages/Activity";
 import Swarm from "./pages/Swarm";
 import Observations from "./pages/Observations";
+import Skills from "./pages/Skills";
+import Curation from "./pages/Curation";
 
 export default function App() {
   return (
@@ -21,6 +23,8 @@ export default function App() {
           <Route path="activity" element={<Activity />} />
           <Route path="swarm" element={<Swarm />} />
           <Route path="observations" element={<Observations />} />
+          <Route path="skills" element={<Skills />} />
+          <Route path="curation" element={<Curation />} />
         </Route>
       </Routes>
     </ProjectProvider>

@@ -185,6 +185,22 @@ export interface PromotionCandidate {
   types: string[];
 }
 
+export interface Skill {
+  name: string;
+  description: string;
+  hasReferences: boolean;
+  preloadedBy: string[];
+  body: string;
+}
+
+export interface CurationStats {
+  last_curated: string | null;
+  sessions_since: number;
+  marks_since: number;
+  promotion_candidates: number;
+  agent_memories: Array<{ name: string; size_bytes: number; last_modified: string }>;
+}
+
 export interface Observation {
   id: number;
   session_id: string;
@@ -313,4 +329,8 @@ export const api = {
   },
   promote: (ids: number[], promotedTo: string) =>
     post<{ ok: boolean; count: number }>("/observations/promote", { ids, promoted_to: promotedTo }),
+  // Skills
+  skills: (projectId: string) => get<Skill[]>(`/skills?project_id=${projectId}`),
+  // Curation
+  curationStats: (projectId: string) => get<CurationStats>(`/curation/stats?project_id=${projectId}`),
 };

@@ -19,6 +19,7 @@ import { listAgentDefinitions, getAgentDefinition, createAgentDefinition, update
 import { searchObservations, getObservationDetails, getObservationTimeline, getObservationsByProject, saveObservation, markAsPromoted, deleteObservation, updateObservation, resolveObservation } from "../services/observation-store.js";
 import { getPromotionCandidates } from "../services/queries/promotionCandidates.js";
 import { getCurationStats } from "../services/curation.js";
+import { listSkills } from "../services/skill.js";
 
 const api = new Hono();
 
@@ -638,6 +639,13 @@ api.post("/observations", async (c) => {
   const id = await saveObservation(obs, session_id ?? "manual", agent_id ?? null, project_id);
   broadcast("observation_created", { id, project_id, type: obs.type, title: obs.title });
   return c.json({ ok: true, id }, 201);
+});
+
+// Skills
+api.get("/skills", async (c) => {
+  const projectId = c.req.query("project_id");
+  if (!projectId) return c.json({ error: "project_id required" }, 400);
+  return c.json(await listSkills(projectId));
 });
 
 // Curation stats
