@@ -18,7 +18,8 @@ export async function getCurationStats(projectId: string): Promise<CurationStats
   const lastCuration = await db.all(
     `SELECT created_at FROM activity_log WHERE event_type = 'curation_completed' ORDER BY created_at DESC LIMIT 1`
   );
-  const lastCurated = lastCuration.length > 0 ? String(lastCuration[0].created_at) : null;
+  const rawDate = lastCuration.length > 0 ? lastCuration[0].created_at : null;
+  const lastCurated = rawDate instanceof Date ? rawDate.toISOString() : rawDate ? String(rawDate) : null;
 
   // Sessions since last curation
   let sessionsSince = 0;
