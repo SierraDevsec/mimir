@@ -16,7 +16,7 @@ import { createTmuxSession, createPane, killPane, killSession, listPanes, listSe
 import { startSwarm, listSwarmSessions } from "../services/swarm.js";
 import { getStatusline, getStatuslineByPath } from "../services/statusline.js";
 import { listAgentDefinitions, getAgentDefinition, createAgentDefinition, updateAgentDefinition, deleteAgentDefinition } from "../services/agent-definition.js";
-import { searchObservations, getObservationDetails, getObservationTimeline, getObservationsByProject, saveObservation, markAsPromoted, deleteObservation, updateObservation } from "../services/observation-store.js";
+import { searchObservations, getObservationDetails, getObservationTimeline, getObservationsByProject, saveObservation, markAsPromoted, deleteObservation, updateObservation, resolveObservation } from "../services/observation-store.js";
 import { getPromotionCandidates } from "../services/queries/promotionCandidates.js";
 
 const api = new Hono();
@@ -578,6 +578,14 @@ api.get("/observations/:id/timeline", async (c) => {
   const before = parseInt(c.req.query("before") ?? "3", 10);
   const after = parseInt(c.req.query("after") ?? "3", 10);
   return c.json(await getObservationTimeline(id, before, after));
+});
+
+api.patch("/observations/:id/resolve", async (c) => {
+  const id = parseInt(c.req.param("id"), 10);
+  const resolved = await resolveObservation(id);
+  if (!resolved) return c.json({ error: "not found or already resolved" }, 404);
+  broadcast("observation_resolved", { id });
+  return c.json({ ok: true });
 });
 
 api.delete("/observations/:id", async (c) => {

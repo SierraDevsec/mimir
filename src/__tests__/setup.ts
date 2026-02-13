@@ -159,6 +159,7 @@ async function initTestSchema(db: Database): Promise<void> {
       files_modified  VARCHAR[],
       discovery_tokens INTEGER DEFAULT 0,
       source          VARCHAR DEFAULT 'lightweight',
+      status          VARCHAR DEFAULT 'active',
       promoted_to     VARCHAR,
       created_at      TIMESTAMP DEFAULT now()
     );

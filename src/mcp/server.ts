@@ -470,6 +470,26 @@ server.tool(
   }
 );
 
+server.tool(
+  "resolve_observation",
+  "Mark an observation as resolved. Resolved marks are excluded from automatic push injection but remain searchable via pull (search_observations). Use when a warning or issue has been fixed.",
+  {
+    id: z.number().describe("Observation ID to resolve"),
+  },
+  async ({ id }) => {
+    try {
+      const result = await apiCall("PATCH", `/api/observations/${id}/resolve`, {}) as { ok?: boolean; error?: string };
+
+      if (result.ok) {
+        return { content: [{ type: "text" as const, text: `Observation #${id} resolved. It will no longer appear in push injection but remains searchable.` }] };
+      }
+      return { content: [{ type: "text" as const, text: `Error: ${result.error ?? "unknown"}` }] };
+    } catch {
+      return { content: [{ type: "text" as const, text: `Error: Could not connect to mimir daemon.` }] };
+    }
+  }
+);
+
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);

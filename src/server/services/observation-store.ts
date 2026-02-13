@@ -37,6 +37,7 @@ export interface ObservationRow {
   files_modified: string[] | null;
   discovery_tokens: number;
   source: string;
+  status: string;
   created_at: string;
 }
 
@@ -215,6 +216,18 @@ export async function markAsPromoted(
   );
 }
 
+export async function resolveObservation(id: number): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.all(
+    `UPDATE observations SET status = 'resolved' WHERE id = ? AND status = 'active' RETURNING id`,
+    id
+  );
+  if (result.length > 0) {
+    await checkpoint();
+  }
+  return result.length > 0;
+}
+
 export async function deleteObservation(id: number): Promise<boolean> {
   const db = await getDb();
   const result = await db.all(`DELETE FROM observations WHERE id = ? RETURNING id`, id);
@@ -278,6 +291,7 @@ interface BackupEntry {
   files_modified: string[] | null;
   discovery_tokens: number;
   source: string;
+  status: string;
   created_at: string;
 }
 
@@ -285,7 +299,7 @@ interface BackupEntry {
 async function backupObservations(projectId?: string): Promise<void> {
   const db = await getDb();
   const cols = `id, session_id, agent_id, project_id, type, title, subtitle, narrative,
-    facts, concepts, files_read, files_modified, discovery_tokens, source, created_at, promoted_to`;
+    facts, concepts, files_read, files_modified, discovery_tokens, source, status, created_at, promoted_to`;
   const rows = projectId
     ? await db.all(`SELECT ${cols} FROM observations WHERE project_id = ? ORDER BY id`, projectId)
     : await db.all(`SELECT ${cols} FROM observations ORDER BY id`);
@@ -340,12 +354,12 @@ export async function restoreFromBackup(): Promise<number> {
 
     await db.run(
       `INSERT INTO observations (session_id, agent_id, project_id, type, title, subtitle, narrative,
-        facts, concepts, files_read, files_modified, discovery_tokens, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        facts, concepts, files_read, files_modified, discovery_tokens, source, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       e.session_id, e.agent_id, e.project_id,
       e.type, e.title, e.subtitle ?? null, e.narrative ?? null,
       toArr(e.facts), toArr(e.concepts), toArr(e.files_read), toArr(e.files_modified),
-      e.discovery_tokens ?? 0, e.source ?? "self-mark"
+      e.discovery_tokens ?? 0, e.source ?? "self-mark", e.status ?? "active"
     );
   }
 

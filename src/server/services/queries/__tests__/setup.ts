@@ -102,6 +102,7 @@ async function initTestSchema() {
       files_modified  VARCHAR[],
       discovery_tokens INTEGER DEFAULT 0,
       source          VARCHAR DEFAULT 'self-mark',
+      status          VARCHAR DEFAULT 'active',
       promoted_to     VARCHAR DEFAULT NULL,
       created_at      TIMESTAMP DEFAULT now()
     );

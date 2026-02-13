@@ -30,6 +30,7 @@ export async function getSiblingMarks(
          AND a.parent_agent_id = ?
          AND a.agent_name != ?
          AND o.promoted_to IS NULL
+         AND (o.status IS NULL OR o.status = 'active')
        ORDER BY o.created_at DESC
        LIMIT ?`,
       sessionId, parentAgentId, agentName, limit
@@ -44,6 +45,7 @@ export async function getSiblingMarks(
      WHERE o.session_id = ?
        AND a.agent_name != ?
        AND o.promoted_to IS NULL
+       AND (o.status IS NULL OR o.status = 'active')
      ORDER BY o.created_at DESC
      LIMIT ?`,
     sessionId, agentName, limit
@@ -66,6 +68,7 @@ export async function getProjectMarks(
      WHERE o.project_id = ?
        AND o.session_id != ?
        AND o.promoted_to IS NULL
+       AND (o.status IS NULL OR o.status = 'active')
      ORDER BY o.created_at DESC
      LIMIT ?`,
     projectId, sessionId, limit
@@ -94,6 +97,7 @@ export async function getFileBasedMarks(
      WHERE o.project_id = ?
        AND o.session_id != ?
        AND o.promoted_to IS NULL
+       AND (o.status IS NULL OR o.status = 'active')
        AND (
          list_has_any(o.files_read, ${fileListLiteral}::VARCHAR[])
          OR list_has_any(o.files_modified, ${fileListLiteral}::VARCHAR[])
@@ -131,6 +135,7 @@ export async function getRelevantMarksRAG(
        WHERE o.project_id = ?
          AND o.session_id != ?
          AND o.promoted_to IS NULL
+         AND (o.status IS NULL OR o.status = 'active')
          AND o.embedding IS NOT NULL
        ORDER BY array_cosine_distance(o.embedding, ${arrLiteral}) ASC
        LIMIT ?`,

@@ -241,6 +241,13 @@ async function initSchema(db: Database): Promise<void> {
     // Column already exists — ignore
   }
 
+  // Migration: add status column to observations (active/resolved lifecycle)
+  try {
+    await db.exec(`ALTER TABLE observations ADD COLUMN status VARCHAR DEFAULT 'active'`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: vss extension + embedding column for RAG
   try {
     await db.exec(`INSTALL vss; LOAD vss;`);

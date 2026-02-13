@@ -345,15 +345,20 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 - Files: `src/server/services/embedding.ts` (new), `observation-store.ts`, `db.ts`, `intelligence.ts`, `relevantMarks.ts`
 - Env: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`
 
-**Phase 2 — Mark lifecycle (resolved status)** ← NEXT:
-- Add `status` column to observations: `active` (default) | `resolved`
+**Phase 2 — Mark lifecycle (resolved status)** ✅ DONE:
+- `status` column on observations: `active` (default) | `resolved`
 - `active` marks → push + pull eligible
-- `resolved` marks → pull-only (searchable for history, excluded from RAG push)
-- Add `resolve_observation` MCP tool (`src/mcp/server.ts`) + API endpoint (`PATCH /api/observations/:id/resolve`)
-- Push queries: add `WHERE status = 'active'` to `getRelevantMarksRAG()`, `getProjectMarks()`, `getFileBasedMarks()`, `getSiblingMarks()`
-- Files to modify: `db.ts` (migration), `observation-store.ts` (resolveObservation), `relevantMarks.ts` (status filter), `src/mcp/server.ts` (new tool), `src/server/routes/api.ts` (new endpoint)
+- `resolved` marks → pull-only (searchable for history, excluded from push injection)
+- `resolveObservation()` in `observation-store.ts` with immediate CHECKPOINT
+- `resolve_observation` MCP tool (`src/mcp/server.ts`)
+- `PATCH /api/observations/:id/resolve` API endpoint (`src/server/routes/api.ts`)
+- Push queries: `WHERE (o.status IS NULL OR o.status = 'active')` on all 5 push queries
+  - `getSiblingMarks()` (2 queries), `getProjectMarks()`, `getFileBasedMarks()`, `getRelevantMarksRAG()`
+- `IS NULL` fallback for backward compat with pre-migration data
+- JSON backup/restore includes `status` field
+- Files: `db.ts`, `observation-store.ts`, `relevantMarks.ts`, `src/mcp/server.ts`, `src/server/routes/api.ts`
 
-**Phase 3 — Search skill** (after RAG):
+**Phase 3 — Search skill** ← NEXT:
 - Add search timing guide to self-mark skill or create dedicated search skill
 - Teaches agents when to call `search_observations` (before task, before file edit, on error, on decision)
 
