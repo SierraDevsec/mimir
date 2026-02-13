@@ -5,9 +5,9 @@ tools: Read, Edit, Write, Bash, Grep, Glob
 model: sonnet
 memory: project
 skills:
-  - compress-output
   - self-mark
   - self-search
+  - self-memory
 ---
 
 # mimir CLI & Hook System
@@ -53,7 +53,3 @@ templates/
 - bin: `mimir` → `dist/cli/index.js`
 - files: dist/, templates/, src/hooks/
 - prepublishOnly: `pnpm build`
-
-## Before Returning
-
-Return in compressed format with the `[COMPRESSED]` marker. See compress-output skill.

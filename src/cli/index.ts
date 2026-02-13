@@ -184,7 +184,7 @@ program
       ? hookScript
       : `MIMIR_PORT=${port} ${hookScript}`;
 
-    const templatePath = path.resolve(baseDir, "../../templates/hooks-config.json");
+    const templatePath = path.resolve(baseDir, "../../src/hooks/hooks-config.json");
     const templateRaw = fs.readFileSync(templatePath, "utf-8");
     const hooksConfig = JSON.parse(templateRaw.replaceAll("HOOK_SCRIPT_PATH", hookCommand));
 
@@ -264,19 +264,24 @@ program
     console.log(`[mimir] MCP permissions added to settings`);
 
     // Copy skill/agent/rule templates by default (skip with --hooks-only)
+    // Source: .claude/ directory with init-manifest.json as selection filter
     if (!opts.hooksOnly) {
-      const skillsSourceDir = path.resolve(baseDir, "../../templates/skills");
-      const skillsTargetDir = path.join(claudeDir, "skills");
+      const mimirClaudeDir = path.resolve(baseDir, "../../.claude");
+      const manifestPath = path.join(mimirClaudeDir, "init-manifest.json");
+      let manifest: { skills?: string[]; agents?: string[]; rules?: string[]; "agent-memory"?: string[] } = {};
+      if (fs.existsSync(manifestPath)) {
+        manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+      }
 
-      if (fs.existsSync(skillsSourceDir)) {
+      // Skills: copy only manifest-listed skills
+      const skillsSourceDir = path.join(mimirClaudeDir, "skills");
+      const skillsTargetDir = path.join(claudeDir, "skills");
+      const skillsList = manifest.skills ?? [];
+
+      if (fs.existsSync(skillsSourceDir) && skillsList.length > 0) {
         fs.mkdirSync(skillsTargetDir, { recursive: true });
-        // Skills are now in folder/SKILL.md structure
-        const skillDirs = fs.readdirSync(skillsSourceDir).filter((f: string) => {
-          const fullPath = path.join(skillsSourceDir, f);
-          return fs.statSync(fullPath).isDirectory();
-        });
         let skillCount = 0;
-        for (const dir of skillDirs) {
+        for (const dir of skillsList) {
           const skillFile = path.join(skillsSourceDir, dir, "SKILL.md");
           if (fs.existsSync(skillFile)) {
             const destDir = path.join(skillsTargetDir, dir);
@@ -284,73 +289,89 @@ program
             if (!fs.existsSync(destFile)) {
               fs.mkdirSync(destDir, { recursive: true });
               fs.copyFileSync(skillFile, destFile);
-              console.log(`[mimir] Skill template copied: ${dir}/SKILL.md`);
+              // Copy references/ scripts/ assets/ subdirectories if present
+              for (const subdir of ["references", "scripts", "assets"]) {
+                const srcSub = path.join(skillsSourceDir, dir, subdir);
+                if (fs.existsSync(srcSub) && fs.statSync(srcSub).isDirectory()) {
+                  const destSub = path.join(destDir, subdir);
+                  fs.mkdirSync(destSub, { recursive: true });
+                  for (const file of fs.readdirSync(srcSub)) {
+                    const srcFile = path.join(srcSub, file);
+                    if (fs.statSync(srcFile).isFile()) {
+                      fs.copyFileSync(srcFile, path.join(destSub, file));
+                    }
+                  }
+                }
+              }
+              console.log(`[mimir] Skill installed: ${dir}/`);
               skillCount++;
             }
           }
         }
-        console.log(`[mimir] ${skillCount} skill templates installed to ${skillsTargetDir}`);
+        console.log(`[mimir] ${skillCount} skills installed to ${skillsTargetDir}`);
       }
 
-      // Agents: copy all templates
-      const agentsSourceDir = path.resolve(baseDir, "../../templates/agents");
+      // Agents: copy only manifest-listed agents
+      const agentsSourceDir = path.join(mimirClaudeDir, "agents");
       const agentsTargetDir = path.join(claudeDir, "agents");
+      const agentsList = manifest.agents ?? [];
 
-      if (fs.existsSync(agentsSourceDir)) {
+      if (fs.existsSync(agentsSourceDir) && agentsList.length > 0) {
         fs.mkdirSync(agentsTargetDir, { recursive: true });
-        const agentFiles = fs.readdirSync(agentsSourceDir).filter((f: string) => f.endsWith(".md"));
         let agentCount = 0;
-        for (const file of agentFiles) {
+        for (const name of agentsList) {
+          const file = `${name}.md`;
+          const src = path.join(agentsSourceDir, file);
           const dest = path.join(agentsTargetDir, file);
-          if (!fs.existsSync(dest)) {
-            let content = fs.readFileSync(path.join(agentsSourceDir, file), "utf-8");
+          if (fs.existsSync(src) && !fs.existsSync(dest)) {
+            let content = fs.readFileSync(src, "utf-8");
             if (content.includes("HOOK_SCRIPT_PATH")) {
               content = content.replaceAll("HOOK_SCRIPT_PATH", hookCommand);
             }
             fs.writeFileSync(dest, content);
-            console.log(`[mimir] Agent template copied: ${file}`);
+            console.log(`[mimir] Agent installed: ${file}`);
             agentCount++;
           }
         }
         if (agentCount > 0) {
-          console.log(`[mimir] ${agentCount} agent templates installed to ${agentsTargetDir}`);
+          console.log(`[mimir] ${agentCount} agents installed to ${agentsTargetDir}`);
         }
       }
 
-      // Rules: copy all templates
-      const rulesSourceDir = path.resolve(baseDir, "../../templates/rules");
+      // Rules: copy only manifest-listed rules
+      const rulesSourceDir = path.join(mimirClaudeDir, "rules");
       const rulesTargetDir = path.join(claudeDir, "rules");
-      if (fs.existsSync(rulesSourceDir)) {
+      const rulesList = manifest.rules ?? [];
+
+      if (fs.existsSync(rulesSourceDir) && rulesList.length > 0) {
         fs.mkdirSync(rulesTargetDir, { recursive: true });
-        const rulesFiles = fs.readdirSync(rulesSourceDir).filter((f: string) => f.endsWith(".md"));
         let rulesCount = 0;
-        for (const file of rulesFiles) {
+        for (const file of rulesList) {
+          const src = path.join(rulesSourceDir, file);
           const dest = path.join(rulesTargetDir, file);
-          if (!fs.existsSync(dest)) {
-            fs.copyFileSync(path.join(rulesSourceDir, file), dest);
-            console.log(`[mimir] Rule template copied: ${file}`);
+          if (fs.existsSync(src) && !fs.existsSync(dest)) {
+            fs.copyFileSync(src, dest);
+            console.log(`[mimir] Rule installed: ${file}`);
             rulesCount++;
           }
         }
         if (rulesCount > 0) {
-          console.log(`[mimir] ${rulesCount} rule templates installed to ${rulesTargetDir}`);
+          console.log(`[mimir] ${rulesCount} rules installed to ${rulesTargetDir}`);
         }
       }
 
-      // Agent memory: seed MEMORY.md files for agents with memory: project
-      const memorySourceDir = path.resolve(baseDir, "../../templates/agent-memory");
+      // Agent memory: seed MEMORY.md for manifest-listed agents
+      const memorySourceDir = path.join(mimirClaudeDir, "agent-memory");
       const memoryTargetDir = path.join(claudeDir, "agent-memory");
+      const memoryList = manifest["agent-memory"] ?? [];
 
-      if (fs.existsSync(memorySourceDir)) {
-        const memoryAgents = fs.readdirSync(memorySourceDir).filter((f: string) => {
-          return fs.statSync(path.join(memorySourceDir, f)).isDirectory();
-        });
+      if (fs.existsSync(memorySourceDir) && memoryList.length > 0) {
         // Only copy memory for agents that were actually installed
         const installedAgents = fs.existsSync(agentsTargetDir)
           ? fs.readdirSync(agentsTargetDir).map((f: string) => f.replace(".md", ""))
           : [];
         let memoryCount = 0;
-        for (const agent of memoryAgents) {
+        for (const agent of memoryList) {
           if (!installedAgents.includes(agent)) continue;
           const srcFile = path.join(memorySourceDir, agent, "MEMORY.md");
           const destDir = path.join(memoryTargetDir, agent);
@@ -792,6 +813,107 @@ program
     child.on("exit", (code) => {
       process.exit(code ?? 0);
     });
+  });
+
+// mimir curate
+program
+  .command("curate")
+  .description("Run mimir-curator agent for knowledge curation")
+  .option("--background", "Run in tmux background pane")
+  .action(async (opts: { background?: boolean }) => {
+    // Ensure daemon is running
+    if (!isRunning()) {
+      console.error("[mimir] Daemon not running. Start with: mimir start");
+      process.exit(1);
+    }
+
+    // Detect project
+    const projectName = path.basename(process.cwd());
+    const projectId = projectName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+
+    // Fetch curation stats
+    let statsText = "";
+    try {
+      const res = await fetch(`${MIMIR_URL}/api/curation/stats?project_id=${encodeURIComponent(projectId)}`);
+      if (res.ok) {
+        const stats = await res.json() as {
+          last_curated: string | null;
+          sessions_since: number;
+          marks_since: number;
+          promotion_candidates: number;
+          agent_memories: Array<{ name: string; size_bytes: number; last_modified: string }>;
+        };
+        const memoryList = stats.agent_memories
+          .map((m) => `  - ${m.name}: ${(m.size_bytes / 1024).toFixed(1)}KB (updated: ${m.last_modified.slice(0, 10)})`)
+          .join("\n");
+        statsText = [
+          `Curation context:`,
+          `- Last curation: ${stats.last_curated ?? "never"}`,
+          `- Sessions since last curation: ${stats.sessions_since}`,
+          `- New marks since last curation: ${stats.marks_since}`,
+          `- Promotion candidates: ${stats.promotion_candidates}`,
+          `- Agent memories:`,
+          memoryList || "  (none)",
+          ``,
+          `Please run a full curation cycle.`,
+        ].join("\n");
+      }
+    } catch {
+      // Proceed without stats
+    }
+
+    if (!statsText) {
+      statsText = "Please run a full curation cycle.";
+    }
+
+    console.log("[mimir] Starting mimir-curator agent...");
+    console.log(`[mimir] Project: ${projectId}`);
+
+    if (opts.background) {
+      // Run in tmux background
+      try {
+        execSync("tmux -V", { stdio: "ignore" });
+      } catch {
+        console.error("[mimir] tmux is not installed. Install tmux first.");
+        process.exit(1);
+      }
+
+      const sessionName = `mimir-curate-${Date.now()}`;
+      const escapedPrompt = statsText.replace(/'/g, "'\\''");
+      execSync(
+        `tmux new-session -d -s '${sessionName}' "claude --agent=mimir-curator --prompt '${escapedPrompt}'"`,
+        { stdio: "ignore" }
+      );
+      console.log(`[mimir] Curator running in tmux session: ${sessionName}`);
+      console.log(`[mimir] Attach: tmux attach -t '${sessionName}'`);
+      console.log(`[mimir] Kill: tmux kill-session -t '${sessionName}'`);
+    } else {
+      // Interactive mode
+      const child = spawn("claude", ["--agent=mimir-curator", "--prompt", statsText], {
+        stdio: "inherit",
+        env: process.env,
+      });
+
+      child.on("error", (err) => {
+        console.error("[mimir] Failed to start curator:", err.message);
+        process.exit(1);
+      });
+
+      child.on("exit", async (code) => {
+        // Record curation completion
+        try {
+          await fetch(`${MIMIR_URL}/api/curation/complete`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ project_id: projectId }),
+          });
+          console.log("[mimir] Curation recorded in activity log.");
+        } catch {
+          // Best-effort
+        }
+        process.exit(code ?? 0);
+      });
+    }
   });
 
 function readPid(): number | null {

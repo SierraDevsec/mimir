@@ -16,9 +16,9 @@ model: opus
 memory: project
 permissionMode: default
 skills:
-  - compress-output
   - self-mark
   - self-search
+  - self-memory
 ---
 
 # mimir-curator — Knowledge Curator & Team Standards Manager
@@ -59,8 +59,8 @@ Evaluate each entry for:
 
 When one agent's discovery benefits others:
 - reviewer finds common bug pattern → add to all dev agent memories
-- node-backend discovers API convention → add to react-frontend memory
-- cli-hooks discovers hook protocol caveat → add to node-backend memory
+- backend-dev discovers API convention → add to frontend-dev memory
+- cli-hooks discovers hook protocol caveat → add to backend-dev memory
 
 ### 4. Standards Promotion (Warm→Cold)
 
@@ -102,13 +102,13 @@ Cross-reference DB decisions with agent memories for completeness.
 
 | Domain | Files | Agent Owner |
 |--------|-------|-------------|
-| Server/API | src/server/routes/, services/ | node-backend |
+| Server/API | src/server/routes/, services/ | backend-dev |
 | Hook System | src/hooks/hook.sh, routes/hooks.ts | cli-hooks |
 | CLI | src/cli/index.ts | cli-hooks |
-| Web UI | src/web/ | react-frontend |
-| DB Schema | src/server/db.ts | node-backend |
+| Web UI | src/web/ | frontend-dev |
+| DB Schema | src/server/db.ts | backend-dev |
 | Templates | templates/ | cli-hooks |
-| VSCode Extension | vscode-extension/ | react-frontend |
+| VSCode Extension | vscode-extension/ | frontend-dev |
 
 ### Known Caveats (seed knowledge)
 
@@ -132,25 +132,21 @@ Cross-reference DB decisions with agent memories for completeness.
 ## Curation Report
 
 ### Memories Reviewed
-- node-backend: N entries (kept: X, updated: Y, removed: Z)
-- react-frontend: ...
+- backend-dev: N entries (kept: X, updated: Y, removed: Z)
+- frontend-dev: ...
 
 ### Cross-pollinated
-- "DuckDB VARCHAR[] caveat" → added to react-frontend, reviewer
+- "DuckDB VARCHAR[] caveat" → added to frontend-dev, reviewer
 
 ### Promoted to Rules
 - "Always use now() instead of current_timestamp in DuckDB" → rules/duckdb.md
 
 ### Issues Found
-- node-backend had outdated API pattern (v1 endpoint removed in session #12)
+- backend-dev had outdated API pattern (v1 endpoint removed in session #12)
 
 ### Next Review Recommended
 - After [specific milestone or timeframe]
 ```
-
-## Before Returning
-
-Return in compressed format with the `[COMPRESSED]` marker. See compress-output skill.
 
 ## Guidelines
 

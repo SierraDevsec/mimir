@@ -5,7 +5,7 @@ import { getContextBySession, getContextByAgent, getTotalContextEntriesCount, de
 import { getFileChangesBySession, getFileChangesByAgent, getTotalFileChangesCount, getFileChangesCountByProject } from "../services/filechange.js";
 import { getAllTasks, getTasksByProject, getTask, createTask, updateTask, deleteTask } from "../services/task.js";
 import { addComment, getCommentsByTask } from "../services/comment.js";
-import { getRecentActivities, getActivitiesBySession, getActivitiesByProject } from "../services/activity.js";
+import { logActivity, getRecentActivities, getActivitiesBySession, getActivitiesByProject } from "../services/activity.js";
 import { getAllProjects, deleteProject } from "../services/project.js";
 import { getDailyActivity, getWeeklyTotals, getAgentContextSizes, getTotalContextSize, getAgentTokenUsage, getTotalTokenUsage } from "../services/usage.js";
 import { sendMessage, getMessagesByProject, getMessage, markAsRead, deleteMessage } from "../services/message.js";
@@ -18,6 +18,7 @@ import { getStatusline, getStatuslineByPath } from "../services/statusline.js";
 import { listAgentDefinitions, getAgentDefinition, createAgentDefinition, updateAgentDefinition, deleteAgentDefinition } from "../services/agent-definition.js";
 import { searchObservations, getObservationDetails, getObservationTimeline, getObservationsByProject, saveObservation, markAsPromoted, deleteObservation, updateObservation, resolveObservation } from "../services/observation-store.js";
 import { getPromotionCandidates } from "../services/queries/promotionCandidates.js";
+import { getCurationStats } from "../services/curation.js";
 
 const api = new Hono();
 
@@ -637,6 +638,21 @@ api.post("/observations", async (c) => {
   const id = await saveObservation(obs, session_id ?? "manual", agent_id ?? null, project_id);
   broadcast("observation_created", { id, project_id, type: obs.type, title: obs.title });
   return c.json({ ok: true, id }, 201);
+});
+
+// Curation stats
+api.get("/curation/stats", async (c) => {
+  const projectId = c.req.query("project_id");
+  if (!projectId) return c.json({ error: "project_id required" }, 400);
+  return c.json(await getCurationStats(projectId));
+});
+
+api.post("/curation/complete", async (c) => {
+  const { project_id, details } = await c.req.json() as { project_id: string; details?: unknown };
+  if (!project_id) return c.json({ error: "project_id required" }, 400);
+  await logActivity("curation", null, "curation_completed", details ?? {});
+  broadcast("curation_completed", { project_id });
+  return c.json({ ok: true });
 });
 
 export default api;

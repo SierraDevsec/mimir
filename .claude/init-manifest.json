@@ -1,0 +1,23 @@
+{
+  "description": "Files to distribute when running 'mimir init'. Only items listed here are copied to target projects.",
+  "skills": [
+    "brainstorming",
+    "changelog-generator",
+    "content-research-writer",
+    "mcp-builder",
+    "self-mark",
+    "self-memory",
+    "self-search",
+    "skill-authoring-guide",
+    "test-driven-development"
+  ],
+  "agents": [
+    "mimir-curator"
+  ],
+  "rules": [
+    "team.md"
+  ],
+  "agent-memory": [
+    "mimir-curator"
+  ]
+}

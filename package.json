@@ -18,8 +18,9 @@
   },
   "files": [
     "dist/",
-    "templates/",
-    "src/hooks/hook.sh"
+    ".claude/",
+    "src/hooks/hook.sh",
+    "src/hooks/hooks-config.json"
   ],
   "scripts": {
     "dev": "tsx src/server/index.ts",

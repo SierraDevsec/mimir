@@ -4,10 +4,20 @@
 
 ```
 Leader (Main Session / Opus)
-├── node-backend (Sonnet) — Hono server, DuckDB, services, hook events
-├── react-frontend (Sonnet) — Web UI pages, components, API client
-├── cli-hooks (Sonnet) — CLI commands, hook.sh, templates, init
-└── reviewer (Opus) — code review across all domains
+├── backend-dev (Sonnet) — Hono server, DuckDB, services, hook events
+├── frontend-dev (Sonnet) — Web UI pages, components, API client
+├── cli-hooks (Sonnet) — CLI commands, hook.sh, init
+├── devops (Sonnet) — CI/CD, Docker, deployment, monitoring
+├── researcher (Sonnet) — research, analysis, feasibility studies
+├── doc-writer (Sonnet) — documentation, API docs, guides
+├── designer (Sonnet) — UI/UX design, component specs
+├── copywriter (Sonnet) — microcopy, error messages, UX writing
+└── mimir-curator (Opus) — knowledge curation, memory audit, cross-pollination
+
+Team leads (delegate to sub-agents):
+├── dev-lead (Opus) — manages backend-dev, devops
+├── design-lead (Opus) — manages frontend-dev, designer, copywriter
+└── planning-lead (Opus) — manages researcher, doc-writer
 ```
 
 ## Development Flow
@@ -37,8 +47,8 @@ Leader (Main Session / Opus)
 
 ## Cost Optimization
 
-- Use Opus for Leader, reviewer, and architectural decisions
-- Use Sonnet for implementation agents (node-backend, react-frontend, cli-hooks)
+- Use Opus for Leader, team leads (dev-lead, design-lead, planning-lead), mimir-curator
+- Use Sonnet for implementation agents (backend-dev, frontend-dev, cli-hooks, devops, etc.)
 - Use Haiku for simple, mechanical tasks only
 
 ## Progress Reporting

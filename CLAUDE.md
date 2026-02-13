@@ -21,20 +21,23 @@ Claude Code Session
 
 ## Tech Stack
 
-- **Runtime**: Node.js v22, TypeScript, ESM (type: module)
-- **Server**: Hono + @hono/node-server + @hono/node-ws
-- **DB**: DuckDB (duckdb-async) — `data/mimir.duckdb`
-- **CLI**: commander.js
-- **Web UI**: React 19 + Vite 7 + TailwindCSS 4 + react-icons
-- **MCP**: mimir-messaging server (messaging + self-marking + Progressive Disclosure)
-- **Test**: Vitest
-- **Package Manager**: pnpm
+- **Runtime**: Node.js v22, TypeScript 5.9, ESM (type: module)
+- **Server**: Hono 4 + @hono/node-server + @hono/node-ws
+- **DB**: DuckDB (duckdb-async) + vss extension (vector similarity)
+- **RAG**: Cloudflare Workers AI `@cf/baai/bge-m3` (1024-dim embedding) + DuckDB cosine similarity
+- **CLI**: commander.js 14
+- **Web UI**: React 19 + Vite 7 + TailwindCSS 4 + react-router-dom 7 + react-icons
+- **MCP**: @modelcontextprotocol/sdk (messaging + self-marking + Progressive Disclosure)
+- **Validation**: zod 4
+- **Test**: Vitest 4
+- **Package Manager**: pnpm 10
+- **Optional**: @slack/bolt (Slack integration)
 
 ## Directory Structure
 
 ```
 src/
-  cli/index.ts            — CLI entry (mimir start/stop/init/status/ui/logs)
+  cli/index.ts            — CLI entry (mimir start/stop/init/status/ui/logs/curate/swarm/mcp)
   hooks/hook.sh           — stdin→stdout hook script (jq + curl)
   server/
     index.ts              — Hono server (port 3100)
@@ -54,6 +57,7 @@ src/
       activity.ts         — Activity log (details JSON)
       intelligence.ts     — Smart context injection (9 stages)
       observation-store.ts — DuckDB CRUD for marks + markAsPromoted()
+      curation.ts         — Curation stats (last_curated, sessions/marks since)
       queries/
         relevantMarks.ts  — Sibling + project + file-based mark queries
   mcp/
@@ -62,12 +66,12 @@ src/
     components/Layout.tsx — embed mode (?embed=true): hides sidebar
     lib/ProjectContext.tsx — URL ?project=<id> for project selection
 vscode-extension/         — VSCode/Cursor Extension (standalone package)
-templates/
-  hooks-config.json       — Hooks config template
-  agents/                 — mimir-curator, mimir-reviewer
-  agent-memory/           — Seed MEMORY.md files
-  skills/                 — compress-output, compress-review, self-mark, self-search, mimir-agents
-  rules/                  — Swarm rules (team.md)
+.claude/
+  init-manifest.json      — Distributable items for mimir init (single source of truth)
+  agents/                 — 12 agent definitions (backend-dev, frontend-dev, cli-hooks, etc.)
+  agent-memory/           — Agent MEMORY.md files (accumulated via self-memory skill)
+  skills/                 — Skills (self-mark, self-search, self-memory, etc.)
+  rules/                  — Rules (team.md, typescript.md, react.md, nodejs.md)
 ```
 
 ## DuckDB Schema (15 tables)
@@ -106,12 +110,16 @@ templates/
 ## CLI Commands
 
 ```bash
-mimir start            # Start daemon (background)
-mimir stop             # Stop daemon
-mimir status           # Show active sessions/agents
-mimir init [path]      # Install hooks + agents/skills/rules + register project
-mimir ui               # Open Web UI in browser
-mimir logs [-n N] [-f] # View daemon logs
+mimir start              # Start daemon (background)
+mimir stop               # Stop daemon
+mimir status             # Show active sessions/agents
+mimir init [path]        # Install hooks + agents/skills/rules + register project
+mimir ui                 # Open Web UI in browser
+mimir logs [-n N] [-f]   # View daemon logs
+mimir curate             # Run mimir-curator agent (interactive)
+mimir curate --background  # Run curator in tmux background
+mimir swarm -a "a:opus,b:sonnet"  # Launch multi-agent tmux session
+mimir mcp                # Run MCP server (stdio mode)
 ```
 
 ## Development Commands
@@ -141,7 +149,8 @@ pnpm test:watch   # Watch mode
 ## Self-Marking System
 
 Agents mark important discoveries during work using the preloaded `self-mark` skill,
-and search past marks before starting work using the `self-search` skill.
+search past marks before starting work using the `self-search` skill,
+and persist lasting patterns to MEMORY.md using the `self-memory` skill.
 
 ### Mechanism
 
@@ -208,8 +217,13 @@ Both use RAG (Cloudflare bge-m3 embedding + DuckDB cosine similarity) when avail
 ```
 Hot  (immediate)   Current session marks → auto-injected via Stage 8
 Warm (searchable)  Past session marks → auto-injected via Stage 9 + MCP pull search
-Cold (permanent)   Repeated patterns → promoted to rules/ via curator + promote_marks
+Cold (persistent)  Lasting patterns → agent MEMORY.md via self-memory skill
+Permanent          Repeated patterns → promoted to rules/ via curator + promote_marks
 ```
+
+**self-memory skill**: Agents update `.claude/agent-memory/{name}/MEMORY.md` before finishing
+significant tasks. Captures code patterns, gotchas, and cross-domain dependencies that persist
+across sessions. Curator refines and cross-pollinates; agents do the initial capture.
 
 **Promotion rule**: Permanent facts (persona, naming, architecture decisions that never change)
 should NOT stay as marks — promote to CLAUDE.md or `rules/`. Marks are for transient knowledge
@@ -284,9 +298,13 @@ code --install-extension mimir-vscode-*.vsix --force  # Install → Reload Windo
 
 ## Agent Management
 
-`mimir init` installs two default agents: **mimir-reviewer** (code review) and **mimir-curator** (knowledge curation).
+`mimir init` installs items listed in `.claude/init-manifest.json`:
+- **Agent**: mimir-curator (knowledge curation)
+- **Skills**: self-mark, self-search, self-memory, brainstorming, changelog-generator, content-research-writer, mcp-builder, skill-authoring-guide, test-driven-development
+- **Rules**: team.md
+- **Memory**: mimir-curator seed MEMORY.md
 
-Use `/mimir-agents` skill to discover installed agents/skills/rules or create custom agents.
+All 12 project agents preload: `self-mark` + `self-search` + `self-memory`.
 
 ## Agent Teams Compatibility
 
@@ -323,46 +341,35 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 - **Leader context is finite**: All modes accumulate; persist critical state to DB
 - **DB over memory files**: Safer for concurrent writes in parallel agent scenarios
 
-## Roadmap
+## Completed Milestones
 
-### Mark Improvement (priority order)
+### Knowledge System (all phases complete)
 
-**Phase 1 — RAG (Cloudflare bge-m3 + DuckDB vss)** ✅ DONE:
-- Embedding: Cloudflare Workers AI `@cf/baai/bge-m3` (free, multilingual, 1024-dim)
-- Storage: DuckDB `vss` extension + `embedding FLOAT[1024]` column on observations
-- `saveObservation()` → async Cloudflare API embedding → DuckDB UPDATE
-- Push (SubagentStart Stage 9): agent context → embedding → cosine similarity → TOP 5 relevant marks
-- Pull (search_observations): query → embedding → cosine similarity → ranked results
-- Push + Pull both use RAG single pipeline — relevance auto-filters
-- Graceful degradation: no Cloudflare key or API fail → ILIKE fallback (zero downtime)
-- Backfill: on daemon start, batch embed `WHERE embedding IS NULL` (50/batch)
-- HNSW index: auto-created after 10+ embeddings exist
-- JSON backup excludes embedding column (too large, regenerable)
-- Files: `src/server/services/embedding.ts` (new), `observation-store.ts`, `db.ts`, `intelligence.ts`, `relevantMarks.ts`
-- Env: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`
+| Phase | Feature | Key Files |
+|-------|---------|-----------|
+| 1. RAG | Cloudflare bge-m3 embedding + DuckDB vss cosine similarity | `embedding.ts`, `observation-store.ts`, `relevantMarks.ts` |
+| 2. Lifecycle | `active`/`resolved` status on marks (resolved = pull-only) | `observation-store.ts`, `relevantMarks.ts` |
+| 3. Search | `self-search` skill — agents pull past marks before acting | `.claude/skills/self-search/SKILL.md` |
+| 4. Memory | `self-memory` skill — agents persist lasting patterns to MEMORY.md | `.claude/skills/self-memory/SKILL.md` |
 
-**Phase 2 — Mark lifecycle (resolved status)** ✅ DONE:
-- `status` column on observations: `active` (default) | `resolved`
-- `active` marks → push + pull eligible
-- `resolved` marks → pull-only (searchable for history, excluded from push injection)
-- `resolveObservation()` in `observation-store.ts` with immediate CHECKPOINT
-- `resolve_observation` MCP tool (`src/mcp/server.ts`)
-- `PATCH /api/observations/:id/resolve` API endpoint (`src/server/routes/api.ts`)
-- Push queries: `WHERE (o.status IS NULL OR o.status = 'active')` on all 5 push queries
-  - `getSiblingMarks()` (2 queries), `getProjectMarks()`, `getFileBasedMarks()`, `getRelevantMarksRAG()`
-- `IS NULL` fallback for backward compat with pre-migration data
-- JSON backup/restore includes `status` field
-- Files: `db.ts`, `observation-store.ts`, `relevantMarks.ts`, `src/mcp/server.ts`, `src/server/routes/api.ts`
+- RAG env: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (graceful ILIKE fallback if missing)
+- All 12 agents preload: `self-mark` + `self-search` + `self-memory`
 
-**Phase 3 — Search skill** ✅ DONE:
-- New `self-search` skill (v1.0.0) — separate from `self-mark` (write vs read concern separation)
-- Search timing guide: before task, before file edit, on error, before decision
-- MCP tool + curl fallback examples for `search_observations`
-- Anti-rationalizations table (parallel to marking rationalizations)
-- All agents preload both `self-mark` + `self-search`
-- surfacing.md updated to match actual code (budget 6000, titles directly injected, RAG Stage 9)
-- Files: `templates/skills/self-search/SKILL.md` (new), `templates/skills/self-mark/references/surfacing.md`
+### Skill Adoption
 
-### Other
+| Skill | Type | Origin |
+|-------|------|--------|
+| `test-driven-development` | preloaded (backend-dev, frontend-dev) | obra/superpowers |
+| `changelog-generator` | user-invoked `/changelog` | Composio |
+| `mcp-builder` | user-invoked `/mcp-builder` | Composio |
+| `brainstorming` | user-invoked `/brainstorming` | obra/superpowers |
+| `content-research-writer` | user-invoked `/content-research-writer` | Composio |
+| `skill-authoring-guide` | user-invoked `/skill-authoring-guide` | custom |
 
-- **Curator automation**: Periodic auto-run via cron/hook trigger
+### Curator Automation
+
+- `mimir curate` — interactive curator session (`claude --agent=mimir-curator`)
+- `mimir curate --background` — tmux background execution
+- Cron: `0 */6 * * * mimir curate --background`
+- `GET /api/curation/stats` — last curation date, new marks/sessions count, promotion candidates
+- `POST /api/curation/complete` — record curation in activity_log
