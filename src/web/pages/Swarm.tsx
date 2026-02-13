@@ -112,6 +112,7 @@ export default function Swarm() {
     loadAgents();
     const interval = setInterval(() => {
       loadSwarmSessions().then(() => loadMessages());
+      loadAgents();
     }, 2000);
     return () => clearInterval(interval);
   }, [selected, loadSwarmSessions, loadMessages, loadAgents]);

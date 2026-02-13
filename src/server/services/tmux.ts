@@ -292,6 +292,18 @@ export async function killSession(sessionName: string): Promise<void> {
 }
 
 /**
+ * Send text + Enter to a tmux pane.
+ */
+export async function sendKeysToPane(paneId: string, text: string): Promise<void> {
+  execFileSync("tmux", ["-L", TMUX_SOCKET, "send-keys", "-t", paneId, "-l", text], {
+    timeout: 3000,
+  });
+  execFileSync("tmux", ["-L", TMUX_SOCKET, "send-keys", "-t", paneId, "Enter"], {
+    timeout: 3000,
+  });
+}
+
+/**
  * List all panes in a session.
  */
 export async function listPanes(sessionName?: string): Promise<TmuxPane[]> {

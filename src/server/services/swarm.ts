@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getDb } from "../db.js";
-import { createTmuxSession, createPane, startClaudeSession, getTmuxSession, listPanes } from "./tmux.js";
+import { createTmuxSession, createPane, startClaudeSession, getTmuxSession, listPanes, sendKeysToPane } from "./tmux.js";
 import { sendMessage } from "./message.js";
 export interface SwarmConfig {
   projectId: string;
@@ -112,6 +112,24 @@ export async function startSwarm(config: SwarmConfig): Promise<SwarmSession> {
     orchestratorLines.push(``, `[Current Task] ${initialTask}`);
   }
   await sendMessage(projectId, "system", "orchestrator", orchestratorLines.join("\n"), "high");
+
+  // Wait for MCP servers to initialize before sending prompts
+  await new Promise(r => setTimeout(r, 5000));
+
+  // Send initial prompt to all agents via tmux send-keys
+  // This kicks off the agents — without this they sit idle at the Claude prompt
+  const kickPrompt = "Read your messages using read_messages MCP tool and execute your assigned task.";
+  for (const agent of agentData) {
+    if (agent.paneId) {
+      try {
+        await sendKeysToPane(agent.paneId, kickPrompt);
+      } catch (error) {
+        console.warn(`[swarm] Failed to send initial prompt to ${agent.name}: ${error}`);
+      }
+      // Stagger to avoid race conditions
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
 
   return {
     sessionName,
