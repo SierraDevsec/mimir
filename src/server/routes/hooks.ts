@@ -184,7 +184,8 @@ hooks.post("/:event", async (c) => {
 
           await stopAgent(agentId, contextSummary, inputTokens, outputTokens);
           if (contextSummary) {
-            await addContextEntry(sessionId, agentId, "agent_summary", contextSummary, ["auto", agentName]);
+            const entryType = agent?.agent_type === "Plan" ? "plan" : "agent_summary";
+            await addContextEntry(sessionId, agentId, entryType, contextSummary, ["auto", agentName]);
           }
           // transcript_path is no longer stored as context — summary is extracted directly
 

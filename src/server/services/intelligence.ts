@@ -1,10 +1,5 @@
 import { getDb } from "../db.js";
 import {
-  getSiblingAgents,
-  getSameTypeAgents,
-  getCrossSessionContext,
-  getTaggedContext,
-  getRecentContext,
   getAssignedTasks,
   getActiveAgents,
   getOpenTasks,
@@ -20,16 +15,17 @@ import {
 } from "./queries/index.js";
 import { isEmbeddingEnabled } from "./embedding.js";
 
-const MAX_CONTEXT_CHARS = 6000;
-
 /**
  * Smart context injection for SubagentStart.
- * Instead of blindly returning recent 10 entries, selects context
- * based on agent role relevance, sibling agents, and cross-session history.
- * Each query is independently protected — partial results are returned on failure.
  *
- * Sections are added in priority order (highest first).
- * A 6000-char budget prevents context bloat.
+ * Push = only what agents can't discover on their own.
+ * Pull = agents search via self-search skill + RAG when needed.
+ *
+ * Stages:
+ *  1. Assigned Tasks — agent needs to know what to do
+ *  2. Pending Messages — agent needs to know about communications
+ *  3. Team Marks — sibling agent warnings/discoveries (current session)
+ *  4. Past Marks — cross-session marks via RAG (or file-based fallback)
  */
 export async function buildSmartContext(
   sessionId: string,
@@ -37,10 +33,9 @@ export async function buildSmartContext(
   agentType: string | null,
   parentAgentId: string | null
 ): Promise<string> {
-  // Collect sections in priority order (highest first)
-  const prioritySections: string[] = [];
+  const sections: string[] = [];
 
-  // 6. Active tasks assigned to this agent (HIGHEST PRIORITY)
+  // 1. Assigned tasks (HIGHEST PRIORITY — agent needs to know what to do)
   const tasks = await getAssignedTasks(sessionId, agentName);
 
   if (tasks.length > 0) {
@@ -53,77 +48,33 @@ export async function buildSmartContext(
       }
       taskLines.push(line);
     }
-    prioritySections.push(`## Your Assigned Tasks\n${taskLines.join("\n")}`);
+    sections.push(`## Your Assigned Tasks\n${taskLines.join("\n")}`);
   }
 
-  // 7. Pending messages for this agent
+  // 2. Pending messages
   const pendingMsgs = await getPendingMessages(sessionId, agentName, 5);
 
   if (pendingMsgs.length > 0) {
     const lines = pendingMsgs.map(
       (m) => `- [${m.priority}] From ${m.from_name} (${m.created_at}): ${m.content}`
     );
-    prioritySections.push(`## Pending Messages\n${lines.join("\n")}`);
+    sections.push(`## Pending Messages\n${lines.join("\n")}`);
   }
 
-  // 1. Sibling agent summaries (same parent, same session — most relevant)
-  if (parentAgentId) {
-    const siblings = await getSiblingAgents(sessionId, parentAgentId);
-
-    if (siblings.length > 0) {
-      const lines = siblings.map(
-        (s) => `- [${s.agent_name}] ${s.context_summary}`
-      );
-      prioritySections.push(`## Sibling Agent Results\n${lines.join("\n")}`);
-    }
-  }
-
-  // 2. Same-type agent history (agents with same name/type — learn from predecessors)
-  if (agentType) {
-    const sameType = await getSameTypeAgents(agentType, sessionId, parentAgentId);
-
-    if (sameType.length > 0) {
-      const lines = sameType.map(
-        (s) => `- [${s.agent_name}] ${s.context_summary}`
-      );
-      prioritySections.push(`## Previous ${agentType} Agent Results\n${lines.join("\n")}`);
-    }
-  }
-
-  // 4. Current session context (tagged entries relevant to this agent)
-  const taggedContext = await getTaggedContext(sessionId, agentName, agentType);
-
-  if (taggedContext.length > 0) {
-    const lines = taggedContext.map(
-      (e) => `- [${e.entry_type}] ${e.content}`
-    );
-    prioritySections.push(`## Relevant Context\n${lines.join("\n")}`);
-  }
-
-  // 3. Cross-session context (same project, previous sessions)
-  const crossSession = await getCrossSessionContext(sessionId);
-
-  if (crossSession.length > 0) {
-    const lines = crossSession.map(
-      (e) => `- [${e.entry_type}${e.agent_name ? ` by ${e.agent_name}` : ""}] ${e.content}`
-    );
-    prioritySections.push(`## Cross-Session Context\n${lines.join("\n")}`);
-  }
-
-  // 8. Sibling Marks — direct injection (marks from sibling agents in same session)
+  // 3. Team Marks — sibling agent marks in current session
   try {
     const siblingMarkRows = await getSiblingMarks(sessionId, agentName, parentAgentId, 5);
     if (siblingMarkRows.length > 0) {
       const lines = siblingMarkRows.map(
         (m) => `- [${m.type}] ${m.title}${m.agent_name ? ` (by ${m.agent_name})` : ""}`
       );
-      prioritySections.push(`## Team Marks\n${lines.join("\n")}`);
+      sections.push(`## Team Marks\n${lines.join("\n")}`);
     }
   } catch (err) {
-    console.error("[intelligence/stage-8] sibling marks failed:", err);
+    console.error("[intelligence/stage-3] team marks failed:", err);
   }
 
-  // 9. Cross-Session Marks — RAG or file-based + project marks fallback
+  // 4. Past Marks — cross-session marks via RAG or file-based fallback
   try {
     const db = await getDb();
     const rows = await db.all(`SELECT project_id FROM sessions WHERE id = ?`, sessionId) as Array<{ project_id: string | null }>;
@@ -132,12 +83,10 @@ export async function buildSmartContext(
       let allMarks;
 
       if (isEmbeddingEnabled()) {
-        // RAG path: embed agent context → cosine similarity → relevant marks
         const taskDescs = tasks.map(t => t.title).join(" ");
         const contextText = `${agentName} ${agentType ?? ""} ${taskDescs}`.trim();
         allMarks = await getRelevantMarksRAG(projectId, contextText, sessionId, 5);
       } else {
-        // Legacy path: file-based + project marks
         const taskFiles = await getAgentFileChanges(sessionId, agentName);
         const fileMarkRows = taskFiles.length > 0
           ? await getFileBasedMarks(projectId, taskFiles, sessionId, 5)
@@ -156,42 +105,16 @@ export async function buildSmartContext(
         const lines = allMarks.map(
           (m) => `- [${m.type}] ${m.title}${m.agent_name ? ` (by ${m.agent_name})` : ""}`
         );
-        prioritySections.push(`## Past Marks\n${lines.join("\n")}`);
+        sections.push(`## Past Marks\n${lines.join("\n")}`);
       }
     }
   } catch (err) {
-    console.error("[intelligence/stage-9] project marks failed:", err);
+    console.error("[intelligence/stage-4] past marks failed:", err);
   }
 
-  // 5. Fallback: if nothing found, use recent session context
-  if (prioritySections.length === 0) {
-    const recent = await getRecentContext(sessionId);
+  if (sections.length === 0) return "";
 
-    if (recent.length > 0) {
-      const lines = recent.map(
-        (e) => `- [${e.entry_type}] ${e.content}`
-      );
-      prioritySections.push(`## Recent Context\n${lines.join("\n")}`);
-    }
-  }
-
-  if (prioritySections.length === 0) return "";
-
-  // Apply token budget: include sections in priority order until budget exhausted
-  const header = `[mimir smart context for ${agentName}]\n\n`;
-  let totalChars = header.length;
-  const includedSections: string[] = [];
-
-  for (const section of prioritySections) {
-    const sectionCost = section.length + 2; // +2 for "\n\n" separator
-    if (totalChars + sectionCost > MAX_CONTEXT_CHARS && includedSections.length > 0) {
-      break; // Budget exceeded — stop adding sections
-    }
-    includedSections.push(section);
-    totalChars += sectionCost;
-  }
-
-  return `${header}${includedSections.join("\n\n")}`;
+  return `[mimir smart context for ${agentName}]\n\n${sections.join("\n\n")}`;
 }
 
 /**
@@ -224,7 +147,7 @@ async function getAgentFileChanges(
  */
 export async function checkIncompleteTasks(
   sessionId: string,
-  agentId: string,
+  _agentId: string,
   agentName: string
 ): Promise<string | null> {
   const incomplete = await getIncompleteTasks(sessionId, agentName);

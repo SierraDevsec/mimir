@@ -231,6 +231,18 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     </button>
   </div>
 
+  <div class="agents-section" id="agents-list" style="display:none">
+    <div class="section-header">Active Agents</div>
+    <div id="agents-container"></div>
+  </div>
+
+  <div class="offline" id="offline" style="display:none">
+    <div class="icon">\u{26A1}</div>
+    <div>Daemon offline</div>
+  </div>
+
+  <div style="flex:1"></div>
+
   <div class="claude-usage" id="claude-usage" style="display:none" onclick="openPage('ClaudeUsage')">
     <div class="section-header">Claude Usage</div>
     <div class="usage-reset" id="usage-5h-reset" style="display:none"></div>
@@ -254,16 +266,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       <div class="usage-bar" id="usage-extra-bar-wrap"><div class="usage-bar-fill ub-green" id="usage-extra-bar" style="width:0%"></div></div>
       <span class="usage-pct u-green" id="usage-extra-pct">-</span>
     </div>
-  </div>
-
-  <div class="agents-section" id="agents-list" style="display:none">
-    <div class="section-header">Active Agents</div>
-    <div id="agents-container"></div>
-  </div>
-
-  <div class="offline" id="offline" style="display:none">
-    <div class="icon">\u{26A1}</div>
-    <div>Daemon offline</div>
   </div>
 
   <script>
