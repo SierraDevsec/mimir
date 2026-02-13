@@ -139,7 +139,12 @@ hooks.post("/:event", async (c) => {
         }
 
         // Phase 3: Smart context injection
-        const additionalContext = await buildSmartContext(sessionId, agentName, agentType, parentAgentId);
+        let additionalContext = "";
+        try {
+          additionalContext = await buildSmartContext(sessionId, agentName, agentType, parentAgentId);
+        } catch (err) {
+          console.error("[hooks/SubagentStart] buildSmartContext failed:", err);
+        }
 
         return c.json({
           hookSpecificOutput: {

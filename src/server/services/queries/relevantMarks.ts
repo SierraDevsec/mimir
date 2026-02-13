@@ -4,6 +4,7 @@
  */
 import { getDb } from "../../db.js";
 import { isEmbeddingEnabled, generateEmbedding } from "../embedding.js";
+import { toVarcharArrayLiteral } from "../observation-store.js";
 
 export interface MarkSummary {
   id: number;
@@ -86,9 +87,7 @@ export async function getFileBasedMarks(
   if (files.length === 0) return [];
   const db = await getDb();
 
-  // Sanitize file paths: escape single quotes for DuckDB (replace ' with '')
-  const sanitizedFiles = files.map(f => f.replace(/'/g, "''"));
-  const fileListLiteral = `[${sanitizedFiles.map(f => `'${f}'`).join(",")}]`;
+  const fileListLiteral = toVarcharArrayLiteral(files);
 
   return db.all(
     `SELECT o.id, o.type, o.title, a.agent_name
@@ -126,6 +125,9 @@ export async function getRelevantMarksRAG(
     }
 
     const db = await getDb();
+    if (!embedding.every(v => typeof v === "number" && isFinite(v))) {
+      return getProjectMarks(projectId, sessionId, limit);
+    }
     const arrLiteral = `[${embedding.join(",")}]::FLOAT[1024]`;
 
     const results = await db.all(

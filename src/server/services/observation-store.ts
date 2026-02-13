@@ -7,6 +7,17 @@
 import { getDb, checkpoint } from "../db.js";
 import { isEmbeddingEnabled, generateEmbedding, updateObservationEmbedding, buildEmbeddingText } from "./embedding.js";
 
+/** Escape a string for DuckDB VARCHAR[] literal: handle both single-quotes and backslashes */
+function escapeForVarcharArray(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/'/g, "''");
+}
+
+/** Build a DuckDB VARCHAR[] literal from a string array, or null if empty */
+export function toVarcharArrayLiteral(arr: string[]): string | null {
+  if (arr.length === 0) return null;
+  return `[${arr.map(s => `'${escapeForVarcharArray(s)}'`).join(",")}]`;
+}
+
 export interface MarkInput {
   type: string;
   title: string;
@@ -49,10 +60,10 @@ export async function saveObservation(
      RETURNING id`,
     sessionId, agentId, projectId,
     obs.type, obs.title, obs.subtitle ?? null, obs.narrative ?? null,
-    obs.facts.length > 0 ? `[${obs.facts.map(f => `'${f.replace(/'/g, "''")}'`).join(",")}]` : null,
-    obs.concepts.length > 0 ? `[${obs.concepts.map(c => `'${c.replace(/'/g, "''")}'`).join(",")}]` : null,
-    obs.files_read.length > 0 ? `[${obs.files_read.map(f => `'${f.replace(/'/g, "''")}'`).join(",")}]` : null,
-    obs.files_modified.length > 0 ? `[${obs.files_modified.map(f => `'${f.replace(/'/g, "''")}'`).join(",")}]` : null,
+    toVarcharArrayLiteral(obs.facts),
+    toVarcharArrayLiteral(obs.concepts),
+    toVarcharArrayLiteral(obs.files_read),
+    toVarcharArrayLiteral(obs.files_modified),
     discoveryTokens, source
   );
   const id = Number((result[0] as { id: number }).id);
@@ -102,6 +113,7 @@ async function searchByEmbedding(
   const conditions: string[] = [
     "o.project_id = ?",
     "o.embedding IS NOT NULL",
+    "o.promoted_to IS NULL",
     `o.created_at >= now() - INTERVAL '${validDays} days'`,
   ];
   const params: unknown[] = [projectId];
@@ -118,6 +130,7 @@ async function searchByEmbedding(
 
   params.push(limit);
 
+  if (!embedding.every(v => typeof v === "number" && isFinite(v))) return [];
   const arrLiteral = `[${embedding.join(",")}]::FLOAT[1024]`;
 
   return db.all(
@@ -140,7 +153,7 @@ async function searchByIlike(
   const validDays = !isNaN(days) && days > 0 ? days : 90;
 
   const db = await getDb();
-  const conditions: string[] = ["o.project_id = ?"];
+  const conditions: string[] = ["o.project_id = ?", "o.promoted_to IS NULL"];
   const params: unknown[] = [projectId];
 
   conditions.push(`o.created_at >= now() - INTERVAL '${validDays} days'`);
@@ -244,9 +257,7 @@ export async function updateObservation(
   }
   if (updates.concepts !== undefined) {
     sets.push("concepts = ?");
-    params.push(updates.concepts.length > 0
-      ? `[${updates.concepts.map(c => `'${c.replace(/'/g, "''")}'`).join(",")}]`
-      : null);
+    params.push(toVarcharArrayLiteral(updates.concepts));
   }
   if (sets.length === 0) return false;
   params.push(id);
