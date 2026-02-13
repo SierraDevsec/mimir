@@ -50,27 +50,39 @@ src/
       project.ts          — Project registration
       session.ts          — Session lifecycle
       agent.ts            — Agent lifecycle + context_summary
+      agent-definition.ts — Agent .md file parsing
       context.ts          — Context entries (entry_type, content, tags[])
       filechange.ts       — File change tracking (Edit/Write)
       task.ts             — Task state tracking (6-stage)
       comment.ts          — Task comments CRUD
       activity.ts         — Activity log (details JSON)
-      intelligence.ts     — Smart context injection (9 stages)
+      intelligence.ts     — Smart context injection (4 stages)
       observation-store.ts — DuckDB CRUD for marks + markAsPromoted()
+      embedding.ts        — Cloudflare bge-m3 embedding + backfill
       curation.ts         — Curation stats (last_curated, sessions/marks since)
+      skill.ts            — Skill file discovery + parsing
+      message.ts          — Inter-agent messaging
+      notify.ts           — tmux pane notifications
+      registry.ts         — Agent registry (tmux pane mapping)
+      statusline.ts       — StatuslineUpdate data (in-memory)
+      swarm.ts            — Swarm session management
+      tmux.ts             — tmux session/pane lifecycle
+      usage.ts            — Claude usage tracking
+      slack.ts            — Slack integration (optional)
       queries/
         relevantMarks.ts  — Sibling + project + file-based mark queries
   mcp/
     server.ts             — MCP server (7 tools: messaging + marks + promotion)
-  web/                    — React SPA (Agents, Tasks, Activity, Observations)
+  web/                    — React SPA (served via VSCode extension webview)
     components/Layout.tsx — embed mode (?embed=true): hides sidebar
     lib/ProjectContext.tsx — URL ?project=<id> for project selection
+    pages/                — Dashboard, Agents, Context, Tasks, Activity, Swarm, Observations, Skills, Curation
 vscode-extension/         — VSCode/Cursor Extension (standalone package)
 .claude/
   init-manifest.json      — Distributable items for mimir init (single source of truth)
   agents/                 — 12 agent definitions (backend-dev, frontend-dev, cli-hooks, etc.)
   agent-memory/           — Agent MEMORY.md files (accumulated via self-memory skill)
-  skills/                 — Skills (self-mark, self-search, self-memory, etc.)
+  skills/                 — 15 skills (self-mark, self-search, self-memory, brainstorming, canvas-design, changelog-generator, content-research-writer, doc-coauthoring, docx, frontend-design, mcp-builder, react-frontend, skill-authoring-guide, test-driven-development, webapp-testing)
   rules/                  — Rules (team.md, typescript.md, react.md, nodejs.md)
 ```
 
@@ -173,8 +185,8 @@ and persist lasting patterns to MEMORY.md using the `self-memory` skill.
 
 ```
 SubagentStart hook → buildSmartContext()
-  Stage 8: Sibling marks (same session, max 5) → "## Team Marks"
-  Stage 9: RAG-based cross-session marks (max 5) → "## Past Marks"
+  Stage 3: Sibling marks (same session, max 5) → "## Team Marks"
+  Stage 4: RAG-based cross-session marks (max 5) → "## Past Marks"
            Agent context (name + type + task titles) → embedding → cosine similarity
            Fallback: file-based + project marks (if RAG unavailable)
   → injected as additionalContext (6000 char budget)
@@ -249,8 +261,8 @@ CHECKPOINT after every write ensures no data loss on crash. Embeddings are regen
 
 ```
 VSCode Extension (HTTP client)
-├── Sidebar WebviewView — 3-button nav + Claude Usage bars + Active Agents
-├── Editor WebviewPanel — iframe (Agents/Tasks) + custom HTML (Orchestration, Usage)
+├── Sidebar WebviewView — 6-button nav + Claude Usage bars + Active Agents
+├── Editor WebviewPanel — iframe (Agents/Tasks/Marks/Skills/Curation) + custom HTML (Orchestration, Usage)
 ├── Terminal Manager — Claude CLI + Swarm tmux (Editor area tabs)
 ├── Status Bar — "mimir: N agents" or "mimir: offline"
 └── Auto-Init — installs hooks + registers project on workspace open
@@ -262,7 +274,7 @@ mimir daemon (port 3100)
 
 ```
 vscode-extension/src/
-  extension.ts              — activate, 10 commands
+  extension.ts              — activate, 11 commands
   claude-usage.ts           — macOS Keychain OAuth → Anthropic Usage API
   terminal-manager.ts       — Claude/Swarm terminal lifecycle
   sidebar-view.ts           — Sidebar HTML (nav + usage + agents)
