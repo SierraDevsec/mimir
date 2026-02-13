@@ -102,9 +102,9 @@ Mimir는 hooks를 통해 Claude Code의 에이전트 라이프사이클 이벤�
 | **크로스 세션** | 같은 프로젝트의 이전 세션 요약 |
 | **태그된 컨텍스트** | 특정 에이전트를 위해 명시적으로 태그된 항목 |
 
-### 컨텍스트 압축
+### 셀프마킹 지식 시스템
 
-자동 2겹 출력 압축 (스킬 + 훅). 에이전트가 10줄 `[COMPRESSED]` 형식으로 자체 압축. [docs/compression-architecture.md](docs/compression-architecture.md) 참고.
+에이전트가 작업 중 발견사항, 결정, 경고를 자동으로 마킹. RAG 기반 시맨틱 검색으로 미래 에이전트에게 자동 전달.
 
 ### 토큰 분석
 
@@ -223,10 +223,10 @@ src/
 │   └── services/  intelligence.ts, agent.ts, session.ts, ...
 └── web/           React 19 + TailwindCSS 4
 
-templates/
-├── hooks-config.json
-├── skills/        에이전트 역할 템플릿
-└── rules/         스웜 컨텍스트 규칙
+.claude/
+├── agents/        에이전트 정의 (12개)
+├── skills/        스킬 (self-mark, self-search, self-memory 등)
+└── rules/         프로젝트 규칙 (team.md)
 ```
 
 **기술 스택**: Node.js 22, TypeScript, Hono, DuckDB, React 19, Vite 7, TailwindCSS 4
@@ -243,8 +243,8 @@ npx mimir stop
 # .claude/settings.local.json 에서 "hooks" 섹션 삭제
 
 # 3. Mimir 템플릿 제거 (선택)
-rm -rf .claude/agents/mimir-reviewer.md .claude/agents/mimir-curator.md
-rm -rf .claude/skills/compress-output .claude/skills/compress-review .claude/skills/mimir-agents
+rm -rf .claude/agents/mimir-curator.md
+rm -rf .claude/skills/self-mark .claude/skills/self-search .claude/skills/self-memory
 rm -rf .claude/rules/team.md
 
 # 4. Mimir 데이터 제거 (선택 - 세션 히스토리 삭제)

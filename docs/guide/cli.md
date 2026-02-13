@@ -42,9 +42,9 @@ Show active sessions and agents. Useful for verifying the daemon is running and 
 
 Install mimir into a project directory. This:
 1. Installs hook configuration in `.claude/settings.local.json`
-2. Copies agent templates (`mimir-reviewer`, `mimir-curator`)
-3. Copies skill templates (`compress-output`, `compress-review`, `mimir-agents`)
-4. Copies rule templates (`team.md`)
+2. Copies agent definitions from `.claude/agents/`
+3. Copies skills (`self-mark`, `self-search`, `self-memory`, etc.)
+4. Copies rules (`team.md`)
 5. Seeds agent memory files
 6. Registers the project in the database
 7. Auto-starts the daemon if not running

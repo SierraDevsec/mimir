@@ -80,6 +80,18 @@
         "icon": "$(bookmark)"
       },
       {
+        "command": "mimir.openSkills",
+        "title": "Open Skills",
+        "category": "Mimir",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "mimir.openCuration",
+        "title": "Open Curation",
+        "category": "Mimir",
+        "icon": "$(library)"
+      },
+      {
         "command": "mimir.startDaemon",
         "title": "Start Daemon",
         "category": "Mimir"

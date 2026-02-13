@@ -508,7 +508,7 @@ api.post("/agent-defs", async (c) => {
       description: description ?? "",
       model: model ?? "sonnet",
       tools: tools ?? ["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
-      skills: skills ?? ["compress-output"],
+      skills: skills ?? ["self-mark", "self-search", "self-memory"],
       memory: memory ?? "project",
       permissionMode: permissionMode ?? "default",
       body: agentBody ?? "",

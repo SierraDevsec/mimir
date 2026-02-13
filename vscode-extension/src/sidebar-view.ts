@@ -229,6 +229,14 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       <span class="icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.0003 3C17.3924 3 21.8784 6.87976 22.8189 12C21.8784 17.1202 17.3924 21 12.0003 21C6.60812 21 2.12215 17.1202 1.18164 12C2.12215 6.87976 6.60812 3 12.0003 3ZM12.0003 19C16.2359 19 19.8603 16.052 20.7777 12C19.8603 7.94803 16.2359 5 12.0003 5C7.7646 5 4.14022 7.94803 3.22278 12C4.14022 16.052 7.7646 19 12.0003 19ZM12.0003 16.5C9.51498 16.5 7.50026 14.4853 7.50026 12C7.50026 9.51472 9.51498 7.5 12.0003 7.5C14.4855 7.5 16.5003 9.51472 16.5003 12C16.5003 14.4853 14.4855 16.5 12.0003 16.5ZM12.0003 14.5C13.381 14.5 14.5003 13.3807 14.5003 12C14.5003 10.6193 13.381 9.5 12.0003 9.5C10.6196 9.5 9.50026 10.6193 9.50026 12C9.50026 13.3807 10.6196 14.5 12.0003 14.5Z"/></svg></span>
       <span class="label">Marks</span>
     </button>
+    <button class="nav-btn" data-page="skills" onclick="handleNav('skills')">
+      <span class="icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.1986 9.94435C14.7649 9.53358 14.4859 8.98601 14.4859 8.39371C14.4859 7.17135 15.6073 6 17.0713 6C18.5353 6 19.6567 7.17135 19.6567 8.39371C19.6567 8.98601 19.3777 9.53358 18.944 9.94435L20.8 21H13.3426L15.1986 9.94435ZM17.0713 8C16.6986 8 16.4859 8.22486 16.4859 8.39371C16.4859 8.46498 16.5234 8.58462 16.6894 8.74462L17.0713 9.10607L17.4532 8.74462C17.6192 8.58462 17.6567 8.46498 17.6567 8.39371C17.6567 8.22486 17.444 8 17.0713 8ZM4.5 10C3.11929 10 2 8.88071 2 7.5C2 6.11929 3.11929 5 4.5 5C5.88071 5 7 6.11929 7 7.5C7 8.88071 5.88071 10 4.5 10ZM4.5 7C4.22386 7 4 7.22386 4 7.5C4 7.77614 4.22386 8 4.5 8C4.77614 8 5 7.77614 5 7.5C5 7.22386 4.77614 7 4.5 7ZM8 21H1L3.5 12H5.5L8 21ZM11.5 4C10.6716 4 10 3.32843 10 2.5C10 1.67157 10.6716 1 11.5 1C12.3284 1 13 1.67157 13 2.5C13 3.32843 12.3284 4 11.5 4ZM13.5 21H9.5L10 7H13L13.5 21Z"/></svg></span>
+      <span class="label">Skills</span>
+    </button>
+    <button class="nav-btn" data-page="curation" onclick="handleNav('curation')">
+      <span class="icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 3H20C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3ZM5 5V19H19V5H5ZM7 7H9V9H7V7ZM7 11H9V13H7V11ZM7 15H9V17H7V15ZM11 7H17V9H11V7ZM11 11H17V13H11V11ZM11 15H17V17H11V15Z"/></svg></span>
+      <span class="label">Curation</span>
+    </button>
   </div>
 
   <div class="agents-section" id="agents-list" style="display:none">
@@ -291,6 +299,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         vscode.postMessage({ command: 'open', page: 'Tasks' });
       } else if (page === 'marks') {
         vscode.postMessage({ command: 'navigate', page: 'marks' });
+      } else if (page === 'skills') {
+        vscode.postMessage({ command: 'navigate', page: 'skills' });
+      } else if (page === 'curation') {
+        vscode.postMessage({ command: 'navigate', page: 'curation' });
       }
     }
 

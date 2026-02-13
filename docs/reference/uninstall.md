@@ -17,8 +17,8 @@ npx mimir stop
 # Edit .claude/settings.local.json and remove the "hooks" section
 
 # 3. Remove mimir templates (optional)
-rm -rf .claude/agents/mimir-reviewer.md .claude/agents/mimir-curator.md
-rm -rf .claude/skills/compress-output .claude/skills/compress-review .claude/skills/mimir-agents
+rm -rf .claude/agents/mimir-curator.md
+rm -rf .claude/skills/self-mark .claude/skills/self-search .claude/skills/self-memory
 rm -rf .claude/rules/team.md
 
 # 4. Remove agent memory (optional)

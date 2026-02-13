@@ -32,12 +32,12 @@ src/
       intelligence.ts   — Smart context injection + prompt auto-attach
   web/                  — React SPA (Dashboard, Agents, Context, Tasks, Activity)
 
-templates/
-  hooks-config.json     — Hook configuration template
-  agents/               — Agent definitions (mimir-reviewer, mimir-curator)
+.claude/
+  agents/               — Agent definitions (12 team agents + mimir-curator)
   agent-memory/         — Seed MEMORY.md files
-  skills/               — Skills (compress-output, compress-review, mimir-agents)
-  rules/                — Swarm rules (team.md)
+  skills/               — Skills (self-mark, self-search, self-memory, etc.)
+  rules/                — Project rules (team.md)
+  init-manifest.json    — Distributable items for mimir init
 
 vscode-extension/       — VSCode Extension (standalone package)
 ```

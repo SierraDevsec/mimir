@@ -48,5 +48,5 @@ Agent A finishes and leaves a summary in DuckDB. Agent B starts later and receiv
 | **hook.sh** | Shell script that reads stdin, POSTs to daemon, outputs to stdout |
 | **Daemon** | Hono server on port 3100 — processes hook events, serves Web UI |
 | **DuckDB** | Local database storing sessions, agents, context, tasks |
-| **Skills** | LLM instructions preloaded into agents (compress-output, etc.) |
+| **Skills** | LLM instructions preloaded into agents (self-mark, self-search, self-memory) |
 | **Rules** | Project-wide conventions auto-loaded every conversation |

@@ -16,8 +16,8 @@ npx mimir init .
 
 This installs:
 - **Hooks** in `.claude/settings.local.json`
-- **Agents**: `mimir-reviewer` (code review) + `mimir-curator` (knowledge curation)
-- **Skills**: `compress-output`, `compress-review`, `mimir-agents`
+- **Agents**: `mimir-curator` (knowledge curation) + 12 team agents
+- **Skills**: `self-mark`, `self-search`, `self-memory`, and more
 - **Rules**: `team.md` (swarm workflow)
 - **Agent Memory**: Seed `MEMORY.md` files for agents
 

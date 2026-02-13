@@ -156,9 +156,10 @@ Completion criteria before the skill's task is done:
 
 ```markdown
 ALWAYS use this exact format:
-[COMPRESSED] agent_type: <type>
-Changed files: file1.ts, file2.ts
-Result: (1-3 lines)
+## Summary
+- Changed: file1.ts, file2.ts
+- Result: (1-3 lines)
+- Decisions: (if any)
 ```
 
 ### Examples Pattern (style guidance)

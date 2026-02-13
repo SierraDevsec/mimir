@@ -37,8 +37,8 @@ Interactive wizard that asks for:
 Then generates `.claude/agents/{name}.md` with:
 - Proper YAML frontmatter
 - Appropriate tools based on role
-- `compress-output` skill (or `compress-review` for reviewers)
-- "Before Returning" compression section
+- `self-mark`, `self-search`, `self-memory` skills
+- Agent memory configuration
 
 ### Phase 3: Update team.md
 
@@ -64,7 +64,9 @@ tools: Read, Edit, Write, Bash, Grep, Glob
 model: sonnet
 memory: project
 skills:
-  - compress-output
+  - self-mark
+  - self-search
+  - self-memory
 ---
 
 # My Agent

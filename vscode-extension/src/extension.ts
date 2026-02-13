@@ -39,6 +39,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       openWebviewPanel(getPort(), "/swarm", "Mimir Orchestration", getProjectId());
     } else if (command === "navigate" && args?.page === "marks") {
       openWebviewPanel(getPort(), "/observations", "Mimir Marks", getProjectId());
+    } else if (command === "navigate" && args?.page === "skills") {
+      openWebviewPanel(getPort(), "/skills", "Mimir Skills", getProjectId());
+    } else if (command === "navigate" && args?.page === "curation") {
+      openWebviewPanel(getPort(), "/curation", "Mimir Curation", getProjectId());
     }
   });
 
@@ -100,6 +104,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       openWebviewPanel(getPort(), "/swarm", "Mimir Orchestration", getProjectId())),
     vscode.commands.registerCommand("mimir.openMarks", () =>
       openWebviewPanel(getPort(), "/observations", "Mimir Marks", getProjectId())),
+    vscode.commands.registerCommand("mimir.openSkills", () =>
+      openWebviewPanel(getPort(), "/skills", "Mimir Skills", getProjectId())),
+    vscode.commands.registerCommand("mimir.openCuration", () =>
+      openWebviewPanel(getPort(), "/curation", "Mimir Curation", getProjectId())),
 
     // Terminal commands
     vscode.commands.registerCommand("mimir.launchClaude", () =>

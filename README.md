@@ -89,9 +89,9 @@ Not just recent context — **relevant** context:
 | **Cross-Session** | Summaries from previous sessions on the same project |
 | **Tagged Context** | Entries explicitly tagged for specific agents |
 
-### Context Compression
+### Self-Marking Knowledge System
 
-Automatic 2-layer output compression (skill + hook). Agents self-compress to 10-line `[COMPRESSED]` format. See [Compression](https://sierradevsec.github.io/mimir/guide/compression/).
+Agents automatically mark discoveries, decisions, and warnings during work. Marks are surfaced to future agents via RAG-powered semantic search. See [Self-Marking](https://sierradevsec.github.io/mimir/guide/self-marking/).
 
 ### Token Analytics
 
@@ -202,8 +202,8 @@ npx mimir stop
 # Edit .claude/settings.local.json and remove the "hooks" section
 
 # 3. Remove Mimir templates (optional)
-rm -rf .claude/agents/mimir-reviewer.md .claude/agents/mimir-curator.md
-rm -rf .claude/skills/compress-output .claude/skills/compress-review .claude/skills/mimir-agents
+rm -rf .claude/agents/mimir-curator.md
+rm -rf .claude/skills/self-mark .claude/skills/self-search .claude/skills/self-memory
 rm -rf .claude/rules/team.md
 
 # 4. Remove Mimir data (optional - deletes all session history)
