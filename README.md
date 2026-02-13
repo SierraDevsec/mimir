@@ -258,7 +258,7 @@ RAG embeddings are optional. Without them, Mimir falls back to text-based ILIKE 
 PRs are always welcome. Here's the quick workflow:
 
 ```bash
-git clone https://github.com/YOUR_ORG/mimir.git
+git clone https://github.com/SierraDevsec/mimir.git
 cd mimir
 pnpm install
 pnpm dev          # Start dev server
