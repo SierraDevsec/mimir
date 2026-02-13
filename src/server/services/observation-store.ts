@@ -7,6 +7,7 @@
  * Recovery: On startup, if observations table is empty but backup exists, restore.
  */
 import { getDb, checkpoint, getDataDir } from "../db.js";
+import { isEmbeddingEnabled, generateEmbedding, updateObservationEmbedding, buildEmbeddingText } from "./embedding.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -64,6 +65,14 @@ export async function saveObservation(
   // Update JSON backup asynchronously
   backupObservations(projectId).catch(() => {});
 
+  // Generate embedding async (don't block save)
+  if (isEmbeddingEnabled()) {
+    const text = buildEmbeddingText(obs.title, obs.narrative, obs.concepts);
+    generateEmbedding(text).then(emb => {
+      if (emb) updateObservationEmbedding(id, emb).catch(() => {});
+    }).catch(() => {});
+  }
+
   return id;
 }
 
@@ -71,14 +80,74 @@ export async function searchObservations(
   projectId: string, query: string, type?: string, agentName?: string,
   limit: number = 20, days: number = 90
 ): Promise<ObservationRow[]> {
-  // Validate days parameter to prevent invalid SQL
+  // Try RAG search first if embedding is enabled and we have a query
+  if (query && isEmbeddingEnabled()) {
+    try {
+      const results = await searchByEmbedding(projectId, query, type, agentName, limit, days);
+      if (results.length > 0) return results;
+    } catch (err) {
+      console.error("[search] RAG search failed, falling back to ILIKE:", err);
+    }
+  }
+
+  // Fallback: ILIKE keyword search
+  return searchByIlike(projectId, query, type, agentName, limit, days);
+}
+
+async function searchByEmbedding(
+  projectId: string, query: string, type?: string, agentName?: string,
+  limit: number = 20, days: number = 90
+): Promise<ObservationRow[]> {
+  const embedding = await generateEmbedding(query);
+  if (!embedding) return [];
+
+  const validDays = !isNaN(days) && days > 0 ? days : 90;
+  const db = await getDb();
+
+  const conditions: string[] = [
+    "o.project_id = ?",
+    "o.embedding IS NOT NULL",
+    `o.created_at >= now() - INTERVAL '${validDays} days'`,
+  ];
+  const params: unknown[] = [projectId];
+
+  if (type) {
+    conditions.push("o.type = ?");
+    params.push(type);
+  }
+
+  if (agentName) {
+    conditions.push("o.agent_id IN (SELECT id FROM agents WHERE agent_name = ?)");
+    params.push(agentName);
+  }
+
+  params.push(limit);
+
+  const arrLiteral = `[${embedding.join(",")}]::FLOAT[1024]`;
+
+  return db.all(
+    `SELECT o.id, o.session_id, o.agent_id, o.project_id, o.type, o.title,
+            o.subtitle, o.narrative, o.facts, o.concepts, o.files_read,
+            o.files_modified, o.discovery_tokens, o.source, o.created_at,
+            array_cosine_distance(o.embedding, ${arrLiteral}) AS distance
+     FROM observations o
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY distance ASC
+     LIMIT ?`,
+    ...params
+  ) as Promise<ObservationRow[]>;
+}
+
+async function searchByIlike(
+  projectId: string, query: string, type?: string, agentName?: string,
+  limit: number = 20, days: number = 90
+): Promise<ObservationRow[]> {
   const validDays = !isNaN(days) && days > 0 ? days : 90;
 
   const db = await getDb();
   const conditions: string[] = ["o.project_id = ?"];
   const params: unknown[] = [projectId];
 
-  // Recency window (validated days)
   conditions.push(`o.created_at >= now() - INTERVAL '${validDays} days'`);
 
   if (type) {
@@ -212,12 +281,14 @@ interface BackupEntry {
   created_at: string;
 }
 
-/** Dump all observations to JSON backup file */
+/** Dump all observations to JSON backup file (excludes embedding — too large, regenerable) */
 async function backupObservations(projectId?: string): Promise<void> {
   const db = await getDb();
+  const cols = `id, session_id, agent_id, project_id, type, title, subtitle, narrative,
+    facts, concepts, files_read, files_modified, discovery_tokens, source, created_at, promoted_to`;
   const rows = projectId
-    ? await db.all(`SELECT * FROM observations WHERE project_id = ? ORDER BY id`, projectId)
-    : await db.all(`SELECT * FROM observations ORDER BY id`);
+    ? await db.all(`SELECT ${cols} FROM observations WHERE project_id = ? ORDER BY id`, projectId)
+    : await db.all(`SELECT ${cols} FROM observations ORDER BY id`);
 
   const backupPath = BACKUP_FILE();
   // Merge with existing backup (other projects)

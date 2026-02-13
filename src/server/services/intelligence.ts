@@ -16,7 +16,9 @@ import {
   getSiblingMarks,
   getProjectMarks,
   getFileBasedMarks,
+  getRelevantMarksRAG,
 } from "./queries/index.js";
+import { isEmbeddingEnabled } from "./embedding.js";
 
 const MAX_CONTEXT_CHARS = 6000;
 
@@ -121,30 +123,34 @@ export async function buildSmartContext(
     console.error("[intelligence/stage-8] sibling marks failed:", err);
   }
 
-  // 9. Cross-Session Marks + File-Based Marks — direct injection
+  // 9. Cross-Session Marks — RAG or file-based + project marks fallback
   try {
     const db = await getDb();
     const rows = await db.all(`SELECT project_id FROM sessions WHERE id = ?`, sessionId) as Array<{ project_id: string | null }>;
     const projectId = rows[0]?.project_id;
     if (projectId) {
-      // Collect file paths from assigned tasks (description + title may mention files)
-      const taskFiles = await getAgentFileChanges(sessionId, agentName);
+      let allMarks;
 
-      // File-based marks (highest relevance for cross-session)
-      const fileMarkRows = taskFiles.length > 0
-        ? await getFileBasedMarks(projectId, taskFiles, sessionId, 5)
-        : [];
+      if (isEmbeddingEnabled()) {
+        // RAG path: embed agent context → cosine similarity → relevant marks
+        const taskDescs = tasks.map(t => t.title).join(" ");
+        const contextText = `${agentName} ${agentType ?? ""} ${taskDescs}`.trim();
+        allMarks = await getRelevantMarksRAG(projectId, contextText, sessionId, 5);
+      } else {
+        // Legacy path: file-based + project marks
+        const taskFiles = await getAgentFileChanges(sessionId, agentName);
+        const fileMarkRows = taskFiles.length > 0
+          ? await getFileBasedMarks(projectId, taskFiles, sessionId, 5)
+          : [];
+        const projectMarkRows = await getProjectMarks(projectId, sessionId, 5);
 
-      // General project marks (fallback)
-      const projectMarkRows = await getProjectMarks(projectId, sessionId, 5);
-
-      // Merge and deduplicate (file-based marks first, then project marks)
-      const seenIds = new Set<number>();
-      const allMarks = [...fileMarkRows, ...projectMarkRows].filter(m => {
-        if (seenIds.has(m.id)) return false;
-        seenIds.add(m.id);
-        return true;
-      }).slice(0, 5);
+        const seenIds = new Set<number>();
+        allMarks = [...fileMarkRows, ...projectMarkRows].filter(m => {
+          if (seenIds.has(m.id)) return false;
+          seenIds.add(m.id);
+          return true;
+        }).slice(0, 5);
+      }
 
       if (allMarks.length > 0) {
         const lines = allMarks.map(

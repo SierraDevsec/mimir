@@ -13,7 +13,7 @@ export { getDecisions } from "./decisions.js";
 export { getCompletedAgents } from "./completedAgents.js";
 export { getIncompleteTasks } from "./incompleteTasks.js";
 export { getPendingMessages, getPendingMessageCount, getAllPendingMessageCount } from "./pendingMessages.js";
-export { getSiblingMarks, getProjectMarks, getFileBasedMarks } from "./relevantMarks.js";
+export { getSiblingMarks, getProjectMarks, getFileBasedMarks, getRelevantMarksRAG } from "./relevantMarks.js";
 export { getPromotionCandidates } from "./promotionCandidates.js";
 
 // Re-export types for convenience

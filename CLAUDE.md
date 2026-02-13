@@ -164,8 +164,9 @@ Agents mark important discoveries during work using the preloaded `self-mark` sk
 ```
 SubagentStart hook → buildSmartContext()
   Stage 8: Sibling marks (same session, max 5) → "## Team Marks"
-  Stage 9: Project marks (cross-session, max 5) → "## Past Marks"
-           File-based marks (matching files_read/files_modified) prioritized
+  Stage 9: RAG-based cross-session marks (max 5) → "## Past Marks"
+           Agent context (name + type + task titles) → embedding → cosine similarity
+           Fallback: file-based + project marks (if RAG unavailable)
   → injected as additionalContext (6000 char budget)
 
 UserPromptSubmit hook → buildPromptContext()
@@ -175,18 +176,20 @@ UserPromptSubmit hook → buildPromptContext()
 
 Promoted marks (`promoted_to IS NOT NULL`) are excluded from injection.
 
-### Push vs Pull Strategy (TODO: implement)
+### Push vs Pull Strategy
 
 Marks use two retrieval modes: **push** (auto-injected) and **pull** (agent-initiated search).
+Both use RAG (Cloudflare bge-m3 embedding + DuckDB cosine similarity) when available.
 
-**Push (injection)** — lean, critical-only:
-- Inject only `warning` and `decision` marks (not discovery/note)
-- These are gotchas and past choices that agents MUST know
-- `ORDER BY type_weight DESC, created_at DESC LIMIT 5`
+**Push (injection)** — context-relevant, auto-injected:
+- Stage 9: agent context → embedding → cosine similarity → TOP 5 relevant marks
+- Semantic relevance replaces naive recency ordering
+- Fallback: file-based + project marks (ILIKE) when RAG unavailable
 
-**Pull (active search)** — on-demand, keyword-based:
-- Agents call `search_observations` MCP tool when they need context
-- No limit — returns full results matching query
+**Pull (active search)** — on-demand, semantic:
+- Agents call `search_observations` MCP tool → query embedding → cosine similarity
+- Falls back to ILIKE if embedding unavailable
+- No limit — returns full results ranked by relevance
 
 **When agents should pull** (add to self-mark skill or rules):
 
@@ -197,8 +200,8 @@ Marks use two retrieval modes: **push** (auto-injected) and **pull** (agent-init
 | When hitting an error | Search error keywords | `search("WAL corruption")` |
 | When making a decision | Search prior decisions | `search("Hono decision")` |
 
-**Current state**: Push works (naive LIMIT 5), pull tool exists but agents don't know when to use it.
-**TODO**: Update self-mark skill with search timing guide + change injection to warning/decision only.
+**Current state**: Push uses RAG (Phase 1 complete), pull tool uses RAG transparently.
+**TODO**: Update self-mark skill with search timing guide (Phase 3).
 
 ### Memory Hierarchy
 
@@ -222,10 +225,12 @@ Observations are agent memory — protected with 3-layer durability:
 
 ```
 saveObservation() → INSERT → CHECKPOINT → backupObservations()
-                                              ↓
-                               data/observations-backup.json
-                                              ↓
-daemon restart → getDb() → restoreFromBackup() (if DB empty + backup exists)
+                                    ↓              ↓
+                              async embedding   data/observations-backup.json
+                              (CF bge-m3)              ↓
+                                    ↓         daemon restart → restoreFromBackup()
+                              UPDATE embedding              → backfillEmbeddings()
+                                                            → ensureHnswIndex()
 ```
 
 ## VSCode Extension (Primary Client)
@@ -324,39 +329,33 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 
 ## Roadmap
 
-### Mark Search Improvement (staged)
+### Mark Improvement (priority order)
 
-**Phase 1 — OR split search** (no dependencies):
-- Split multi-word queries into tokens, OR-combine ILIKE conditions
-- Current: `ILIKE '%agent team skill%'` → 0 results (whole-string match)
-- Target: `ILIKE '%agent%' OR ILIKE '%team%' OR ILIKE '%skill%'` → ranked results
-- File: `src/server/services/observation-store.ts` → `searchObservations()`
+**Phase 1 — RAG (Cloudflare bge-m3 + DuckDB vss)** ✅ DONE:
+- Embedding: Cloudflare Workers AI `@cf/baai/bge-m3` (free, multilingual, 1024-dim)
+- Storage: DuckDB `vss` extension + `embedding FLOAT[1024]` column on observations
+- `saveObservation()` → async Cloudflare API embedding → DuckDB UPDATE
+- Push (SubagentStart Stage 9): agent context → embedding → cosine similarity → TOP 5 relevant marks
+- Pull (search_observations): query → embedding → cosine similarity → ranked results
+- Push + Pull both use RAG single pipeline — relevance auto-filters
+- Graceful degradation: no Cloudflare key or API fail → ILIKE fallback (zero downtime)
+- Backfill: on daemon start, batch embed `WHERE embedding IS NULL` (50/batch)
+- HNSW index: auto-created after 10+ embeddings exist
+- JSON backup excludes embedding column (too large, regenerable)
+- Files: `src/server/services/embedding.ts` (new), `observation-store.ts`, `db.ts`, `intelligence.ts`, `relevantMarks.ts`
+- Env: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`
 
-**Phase 2 — Search skill**:
+**Phase 2 — Mark lifecycle (resolved status)**:
+- Add `status` column to observations: `active` (default) | `resolved`
+- `active` marks → push + pull eligible
+- `resolved` marks → pull-only (searchable for history, excluded from RAG push)
+- Add `resolve_observation` MCP tool + API endpoint (`PATCH /api/observations/:id/resolve`)
+- Push query: `WHERE status = 'active'` + cosine similarity
+
+**Phase 3 — Search skill** (after RAG):
 - Add search timing guide to self-mark skill or create dedicated search skill
 - Teaches agents when to call `search_observations` (before task, before file edit, on error, on decision)
 
-**Phase 3 — Mark lifecycle (resolved status)**:
-- Add `status` column to observations: `active` (default) | `resolved`
-- `active` marks → push + pull eligible
-- `resolved` marks → pull-only (searchable for history, excluded from push injection)
-- Add `resolve_observation` MCP tool + API endpoint (`PATCH /api/observations/:id/resolve`)
-- When a fix is deployed, agent or curator resolves related warning/decision marks
-- Prevents stale warnings about fixed issues from polluting push injection
-
-**Phase 4 — Push filter**:
-- Change injection to warning/decision only (not discovery/note)
-- Only inject `status = 'active'` marks
-- Files: `src/server/services/queries/relevantMarks.ts`, `intelligence.ts`
-
-**Phase 5 — Vector search** (requires embedding model):
-- DuckDB `vss` extension + FLOAT[] embedding column on observations
-- Embedding options: OpenAI text-embedding-3-small (cheap, external) or local ollama (offline, setup)
-- `saveObservation()` → generate embedding → store alongside mark
-- `searchObservations()` → embed query → cosine similarity → ranked results
-
 ### Other
 
-- **MCP in subagents**: Monitor future Claude Code versions — remove curl fallback when supported
 - **Curator automation**: Periodic auto-run via cron/hook trigger
-- **Promotion Web UI**: Currently API/MCP only

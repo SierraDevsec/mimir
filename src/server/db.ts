@@ -241,6 +241,20 @@ async function initSchema(db: Database): Promise<void> {
     // Column already exists — ignore
   }
 
+  // Migration: vss extension + embedding column for RAG
+  try {
+    await db.exec(`INSTALL vss; LOAD vss;`);
+    await db.exec(`SET hnsw_enable_experimental_persistence = true`);
+  } catch {
+    // vss already loaded or unavailable — RAG will use sequential scan
+  }
+
+  try {
+    await db.exec(`ALTER TABLE observations ADD COLUMN embedding FLOAT[1024]`);
+  } catch {
+    // Column already exists — ignore
+  }
+
 }
 
 /** Force CHECKPOINT — call after critical writes (observations, projects) */

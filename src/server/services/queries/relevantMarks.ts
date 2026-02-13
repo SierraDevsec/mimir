@@ -3,6 +3,7 @@
  * Returns actual mark content (not just counts) for direct injection.
  */
 import { getDb } from "../../db.js";
+import { isEmbeddingEnabled, generateEmbedding } from "../embedding.js";
 
 export interface MarkSummary {
   id: number;
@@ -101,4 +102,48 @@ export async function getFileBasedMarks(
      LIMIT ?`,
     projectId, sessionId, limit
   ) as Promise<MarkSummary[]>;
+}
+
+/**
+ * RAG-based mark retrieval: embed context text → cosine similarity search.
+ * Falls back to getProjectMarks() if embedding fails.
+ */
+export async function getRelevantMarksRAG(
+  projectId: string, contextText: string, sessionId: string, limit: number = 5
+): Promise<MarkSummary[]> {
+  if (!isEmbeddingEnabled()) {
+    return getProjectMarks(projectId, sessionId, limit);
+  }
+
+  try {
+    const embedding = await generateEmbedding(contextText);
+    if (!embedding) {
+      return getProjectMarks(projectId, sessionId, limit);
+    }
+
+    const db = await getDb();
+    const arrLiteral = `[${embedding.join(",")}]::FLOAT[1024]`;
+
+    const results = await db.all(
+      `SELECT o.id, o.type, o.title, a.agent_name
+       FROM observations o
+       LEFT JOIN agents a ON o.agent_id = a.id
+       WHERE o.project_id = ?
+         AND o.session_id != ?
+         AND o.promoted_to IS NULL
+         AND o.embedding IS NOT NULL
+       ORDER BY array_cosine_distance(o.embedding, ${arrLiteral}) ASC
+       LIMIT ?`,
+      projectId, sessionId, limit
+    ) as MarkSummary[];
+
+    if (results.length === 0) {
+      return getProjectMarks(projectId, sessionId, limit);
+    }
+
+    return results;
+  } catch (err) {
+    console.error("[relevantMarks] RAG search failed, falling back:", err);
+    return getProjectMarks(projectId, sessionId, limit);
+  }
 }

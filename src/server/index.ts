@@ -95,6 +95,15 @@ async function main() {
   const { restoreFromBackup } = await import("./services/observation-store.js");
   await restoreFromBackup();
 
+  // Backfill embeddings for observations missing them (async, non-blocking)
+  const { isEmbeddingEnabled, backfillEmbeddings, ensureHnswIndex } = await import("./services/embedding.js");
+  if (isEmbeddingEnabled()) {
+    backfillEmbeddings().then(count => {
+      if (count > 0) console.log(`[mimir] Backfilled ${count} observation embeddings`);
+      return ensureHnswIndex();
+    }).catch(err => console.error("[mimir] Embedding backfill failed:", err));
+  }
+
   const server = serve({ fetch: app.fetch, port: PORT }, (info) => {
     console.log(`[mimir] server running on http://localhost:${info.port}`);
   });

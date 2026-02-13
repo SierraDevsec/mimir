@@ -4,8 +4,19 @@ import { getTestDb, truncateAllTables, closeTestDb, fixtures, setupTestData } fr
 
 vi.mock("../../db.js", async () => {
   const setup = await import("../../../__tests__/setup.js");
-  return { getDb: () => setup.getTestDb() };
+  return {
+    getDb: () => setup.getTestDb(),
+    checkpoint: vi.fn(),
+    getDataDir: () => "/tmp/mimir-test",
+  };
 });
+
+vi.mock("../embedding.js", () => ({
+  isEmbeddingEnabled: () => false,
+  generateEmbedding: vi.fn().mockResolvedValue(null),
+  updateObservationEmbedding: vi.fn(),
+  buildEmbeddingText: (title: string) => title,
+}));
 
 describe("observation-store", () => {
   beforeAll(async () => {
