@@ -13,7 +13,7 @@ export function getWebviewHtml(port: number, route: string = "/", projectId?: st
   <style>
     body, html {
       margin: 0;
-      padding: 0;
+      padding: 0 !important;
       width: 100%;
       height: 100%;
       overflow: hidden;

@@ -5,6 +5,9 @@ import { registerAgent } from "./registry.js";
 
 const execFileAsync = promisify(execFile);
 
+/** All tmux commands use a dedicated socket so mimir sessions are isolated */
+const TMUX_SOCKET = "mimir";
+
 export interface TmuxSession {
   session_name: string;
   project_id: string;
@@ -49,6 +52,7 @@ export async function createTmuxSession(projectId: string): Promise<string> {
   // Create tmux session (detached)
   try {
     await execFileAsync("tmux", [
+      "-L", TMUX_SOCKET,
       "new-session",
       "-d",
       "-s",
@@ -84,6 +88,7 @@ export async function createPane(
   // Split window to create new pane
   try {
     const { stdout } = await execFileAsync("tmux", [
+      "-L", TMUX_SOCKET,
       "split-window",
       "-t",
       `${sessionName}:main`,
@@ -97,6 +102,7 @@ export async function createPane(
 
     // Get window ID
     const { stdout: windowStdout } = await execFileAsync("tmux", [
+      "-L", TMUX_SOCKET,
       "display-message",
       "-t",
       paneId,
@@ -174,10 +180,10 @@ export async function startClaudeSession(
   ].join(" && ");
 
   try {
-    execFileSync("tmux", ["send-keys", "-t", paneId, "-l", command], {
+    execFileSync("tmux", ["-L", TMUX_SOCKET, "send-keys", "-t", paneId, "-l", command], {
       timeout: 3000,
     });
-    execFileSync("tmux", ["send-keys", "-t", paneId, "Enter"], {
+    execFileSync("tmux", ["-L", TMUX_SOCKET, "send-keys", "-t", paneId, "Enter"], {
       timeout: 3000,
     });
 
@@ -195,7 +201,7 @@ export async function killPane(paneId: string): Promise<void> {
   const db = await getDb();
 
   try {
-    await execFileAsync("tmux", ["kill-pane", "-t", paneId]);
+    await execFileAsync("tmux", ["-L", TMUX_SOCKET, "kill-pane", "-t", paneId]);
 
     // Mark as inactive in DB
     await db.run(
@@ -215,7 +221,7 @@ export async function killSession(sessionName: string): Promise<void> {
 
   // Try to kill tmux session (ignore if session doesn't exist)
   try {
-    await execFileAsync("tmux", ["kill-session", "-t", sessionName]);
+    await execFileAsync("tmux", ["-L", TMUX_SOCKET, "kill-session", "-t", sessionName]);
   } catch (error) {
     // Session may not exist in tmux, but we still need to clean up DB
     console.warn(`[tmux] Session ${sessionName} not found in tmux, cleaning up DB only`);

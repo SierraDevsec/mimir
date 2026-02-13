@@ -42,10 +42,10 @@ export async function notifyAgent(
       const teamStr = teamNames.length > 0 ? teamNames.join(", ") : "none";
       prompt += ` Delegate to your team agents (${teamStr}) via send_message. Do NOT do the work yourself.`;
     }
-    execFileSync("tmux", ["send-keys", "-t", pane, "-l", prompt], {
+    execFileSync("tmux", ["-L", "mimir", "send-keys", "-t", pane, "-l", prompt], {
       timeout: 3000,
     });
-    execFileSync("tmux", ["send-keys", "-t", pane, "Enter"], {
+    execFileSync("tmux", ["-L", "mimir", "send-keys", "-t", pane, "Enter"], {
       timeout: 3000,
     });
     lastNotified.set(key, now);

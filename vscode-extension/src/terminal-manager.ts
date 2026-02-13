@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import * as path from "node:path";
+import { execSync } from "node:child_process";
 
 interface ManagedTerminal {
   terminal: vscode.Terminal;
@@ -80,19 +80,31 @@ export class TerminalManager {
   }
 
   /**
-   * Launch tmux swarm terminal **in the bottom panel**.
-   *
-   * Electron equivalent: orchestration page "Terminal" tab.
-   * VSCode approach: stays in the terminal panel (bottom). User can
-   * view orchestration webview in editor + swarm terminal in panel
-   * simultaneously — better than Electron's one-at-a-time toggle.
+   * Launch tmux swarm terminal in the editor area.
+   * Only attaches if a tmux session already exists — otherwise shows info message.
    */
-  launchSwarm(projectId: string, projectPath: string): vscode.Terminal {
+  launchSwarm(projectId: string, projectPath: string): vscode.Terminal | undefined {
     const key = `swarm-${projectId}`;
     const existing = this.terminals.get(key);
     if (existing && existing.terminal.exitStatus === undefined) {
       existing.terminal.show();
       return existing.terminal;
+    }
+
+    const sessionName = `mimir-${projectId}`;
+
+    // Check if tmux session exists before opening a terminal
+    // Use login shell to ensure PATH includes homebrew (/opt/homebrew/bin)
+    try {
+      execSync(`tmux -L mimir has-session -t ${sessionName}`, {
+        stdio: "ignore",
+        env: { ...process.env, PATH: `${process.env.PATH ?? ""}:/opt/homebrew/bin:/usr/local/bin` },
+      });
+    } catch {
+      vscode.window.showWarningMessage(
+        `Swarm 세션이 실행 중이 아닙니다. "mimir swarm" 명령으로 먼저 시작하세요.`
+      );
+      return undefined;
     }
 
     const terminal = vscode.window.createTerminal({
@@ -102,9 +114,8 @@ export class TerminalManager {
       location: vscode.TerminalLocation.Editor,
     });
 
-    // Attach to tmux session with tiled layout
     terminal.sendText(
-      `tmux -L mimir attach -t mimir-${projectId} \\; ` +
+      `tmux -L mimir attach -t ${sessionName} \\; ` +
       `set-option -g window-size latest \\; ` +
       `set-option aggressive-resize on \\; ` +
       `set-hook -g client-resized select-layout\\ tiled \\; ` +

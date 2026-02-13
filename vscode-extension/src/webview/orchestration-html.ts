@@ -18,6 +18,7 @@ export function getOrchestrationHtml(port: number, projectId: string): string {
       width: 100%;
       height: 100%;
       overflow: hidden;
+      padding: 0 !important;
       background: #0a0a0a;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       color: #e5e5e5;

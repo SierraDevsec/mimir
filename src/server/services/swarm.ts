@@ -204,6 +204,7 @@ async function getFirstPaneId(sessionName: string): Promise<string> {
 
   try {
     const { stdout } = await execFileAsync("tmux", [
+      "-L", "mimir",
       "list-panes",
       "-t",
       sessionName,

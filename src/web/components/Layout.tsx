@@ -31,8 +31,8 @@ export default function Layout() {
 
   if (isEmbed) {
     return (
-      <div className="min-h-screen bg-transparent">
-        <main className="p-4 overflow-auto">
+      <div className="h-screen bg-transparent">
+        <main className="h-full overflow-hidden">
           <Outlet />
         </main>
       </div>

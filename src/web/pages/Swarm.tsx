@@ -144,20 +144,20 @@ export default function Swarm() {
     }
   }
 
+  const [confirmingKill, setConfirmingKill] = useState<string | null>(null);
+
   async function killSwarmSession(sessionName: string) {
     if (!selected) return;
-
-    if (!confirm(`Kill session "${sessionName}"?`)) return;
 
     try {
       await fetch(`/api/tmux/sessions/${encodeURIComponent(sessionName)}`, {
         method: "DELETE",
       });
+      setConfirmingKill(null);
       loadSwarmSessions();
       loadAgents();
     } catch (error) {
       console.error("Failed to kill session:", error);
-      alert("Failed to kill session. Check console for details.");
     }
   }
 
@@ -236,8 +236,9 @@ export default function Swarm() {
 
   // Auto-scroll to bottom when new messages arrive (only if user is at bottom)
   useEffect(() => {
-    if (shouldAutoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldAutoScroll && messagesContainerRef.current) {
+      const el = messagesContainerRef.current;
+      el.scrollTop = el.scrollHeight;
     }
   }, [filteredMessages, shouldAutoScroll]);
 
@@ -253,7 +254,7 @@ export default function Swarm() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Claude Orchestration</h2>
         <div className="flex gap-2">
@@ -401,13 +402,30 @@ export default function Swarm() {
                           {session.agents.length} agents
                         </div>
                       </div>
-                      <button
-                        onClick={() => killSwarmSession(session.sessionName)}
-                        className="px-2 py-1 bg-red-900/30 hover:bg-red-800/50 text-red-400 text-xs rounded border border-red-700/50 transition-colors"
-                        title="Kill session"
-                      >
-                        Kill
-                      </button>
+                      {confirmingKill === session.sessionName ? (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => killSwarmSession(session.sessionName)}
+                            className="px-2 py-1 bg-red-700 hover:bg-red-600 text-white text-xs rounded transition-colors"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setConfirmingKill(null)}
+                            className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs rounded transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmingKill(session.sessionName)}
+                          className="px-2 py-1 bg-red-900/30 hover:bg-red-800/50 text-red-400 text-xs rounded border border-red-700/50 transition-colors"
+                          title="Kill session"
+                        >
+                          Kill
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
