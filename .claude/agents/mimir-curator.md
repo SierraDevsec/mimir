@@ -18,6 +18,7 @@ permissionMode: default
 skills:
   - compress-output
   - self-mark
+  - self-search
 ---
 
 # mimir-curator — Knowledge Curator & Team Standards Manager

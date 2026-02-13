@@ -10,6 +10,7 @@ memory: project
 skills:
   - compress-review
   - self-mark
+  - self-search
 permissionMode: plan
 ---
 

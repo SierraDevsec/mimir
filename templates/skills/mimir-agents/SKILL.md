@@ -136,8 +136,8 @@ If it does, warn the user and ask for confirmation before overwriting.
 ### Step 3-3: Determine skills
 
 Apply these rules:
-- If role is **Reviewer** → `skills: [compress-review]`
-- All other roles → `skills: [compress-output]`
+- If role is **Reviewer** → `skills: [compress-review, self-mark, self-search]`
+- All other roles → `skills: [compress-output, self-mark, self-search]`
 
 ### Step 3-4: Determine tools
 
@@ -157,7 +157,7 @@ tools: {tools from Step 3-4}
 model: {model}
 memory: project
 skills:
-  - {skill from Step 3-3}
+  - {skills from Step 3-3}
 ---
 
 # {Name} Agent

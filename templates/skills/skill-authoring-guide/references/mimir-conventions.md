@@ -44,7 +44,8 @@ skills:
 **Current preloaded skills**:
 - `compress-output` — output compression for implementer agents
 - `compress-review` — output compression for reviewer agents
-- `self-mark` — agent self-marking protocol
+- `self-mark` — agent self-marking protocol (write marks)
+- `self-search` — past mark search protocol (read marks)
 
 ### User-Invoked Skills
 
@@ -76,6 +77,7 @@ model: sonnet
 skills:
   - compress-output
   - self-mark
+  - self-search
 ---
 ```
 
@@ -84,8 +86,8 @@ Step 3-3 to include the new skill in the auto-assignment rules:
 
 ```markdown
 ### Step 3-3: Determine skills
-- If role is Reviewer → skills: [compress-review, self-mark]
-- All other roles → skills: [compress-output, self-mark]
+- If role is Reviewer → skills: [compress-review, self-mark, self-search]
+- All other roles → skills: [compress-output, self-mark, self-search]
 ```
 
 ---

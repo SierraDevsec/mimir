@@ -16,7 +16,9 @@
 You call save_observation()
        │
        ▼
-  HTTP POST → mimir daemon → DuckDB INSERT (immediate)
+  HTTP POST → mimir daemon → DuckDB INSERT + CHECKPOINT
+       │
+       │  async: Cloudflare bge-m3 embedding → UPDATE embedding column
        │
        │  ... time passes ... Agent B starts ...
        │
@@ -24,27 +26,26 @@ You call save_observation()
   SubagentStart hook fires for Agent B
        │
        ▼
-  buildSmartContext() queries DuckDB
+  buildSmartContext() queries DuckDB (6000 char budget)
        │
-       ├── Stage 8: Sibling observations (same session, same parent)
-       │   → "3 observation(s) from sibling agents available"
+       ├── Stage 8: Sibling marks (same session, same parent)
+       │   → "## Team Marks" with mark titles directly listed
        │
-       └── Stage 9: Cross-session summaries (same project, past sessions)
-           → "2 past session summary(ies) available"
+       └── Stage 9: Cross-session marks (RAG cosine similarity or fallback)
+           → "## Past Marks" with mark titles directly listed
        │
        ▼
   Injected as additionalContext into Agent B's system prompt
        │
        ▼
-  Agent B sees: "Team Observations: 3 observation(s)... Use search_observations to search"
-  Agent B calls search_observations → gets_details → reads your mark
+  Agent B sees mark titles and can search for full details
 ```
 
 ---
 
 ## Push: Automatic Injection (SubagentStart)
 
-When a new agent starts, `buildSmartContext()` runs 9 priority stages:
+When a new agent starts, `buildSmartContext()` runs priority stages:
 
 | Priority | Stage | What it injects |
 |----------|-------|----------------|
@@ -55,16 +56,27 @@ When a new agent starts, `buildSmartContext()` runs 9 priority stages:
 | 5 | Tagged context | Context entries matching agent |
 | 6 | Cross-session context | Previous session entries |
 | 7 | Fallback | Recent context (if nothing else found) |
-| **8** | **Sibling observations** | **Count + search hint (your marks)** |
-| **9** | **Cross-session summaries** | **Count + search hint** |
+| **8** | **Sibling marks** | **Mark titles from sibling agents (Team Marks)** |
+| **9** | **Cross-session marks** | **RAG-ranked mark titles (Past Marks)** |
 
-**Budget**: 4000 characters total. Stages are added top-down until budget is exhausted.
+**Budget**: 6000 characters total. Stages are added top-down until budget is exhausted.
 High-priority stages (tasks, messages, sibling summaries) take precedence.
 
-**Current limitation**: Stages 8 and 9 only inject a **count and hint**,
-not the actual mark content. The receiving agent must use MCP tools to
-search and read the full marks. This is intentional — Progressive Disclosure
-prevents context bloat from dumping all marks into every agent.
+**Stage 8** — Sibling Marks (same session, same parent agent):
+- Queries marks from sibling agents in the current session
+- Injects actual titles: `- [warning] DuckDB BigInt needs Number() (by node-backend)`
+- Filters: `promoted_to IS NULL`, `status = 'active'`
+- Limit: 5 marks
+
+**Stage 9** — Cross-Session Marks:
+- **RAG path** (when Cloudflare embedding enabled):
+  Agent name + type + task titles → embedding → cosine similarity → TOP 5 relevant marks
+- **Fallback path** (no embedding):
+  File-based marks (matching agent's file changes) + project marks (recency) → deduplicated → 5 marks
+- Injects actual titles: `- [decision] Chose Hono over Express (by node-backend)`
+- Filters: different session, `promoted_to IS NULL`, `status = 'active'`
+
+**Resolved marks** (`status = 'resolved'`) are excluded from all push injection.
 
 ---
 
@@ -78,13 +90,14 @@ Agents can search marks at any time using the 3-layer workflow:
 3. get_details(ids)            → full content (~500 tokens/result)
 ```
 
-**When agents search**: When the push hint says "N observations available"
-or when working on a file that might have related marks.
+**When to search**: See the `self-search` skill for timing guide and rationalizations.
 
-**When agents don't search**: Most of the time. Pull-based search requires
-the agent to think "I should check for past marks" — which happens less
-often than we'd like. This is why push (auto-injection) is the primary
-delivery mechanism.
+**RAG transparency**: `search_observations` uses RAG (embedding + cosine similarity)
+when available, falls back to ILIKE text matching otherwise. The caller doesn't need
+to know which path is used — results are ranked by relevance either way.
+
+**Resolved marks**: Included in pull search results (historical knowledge is preserved).
+Only excluded from push injection.
 
 ---
 
@@ -128,11 +141,12 @@ Future: Every agent reads this from rules/ automatically.
 As a marking agent, your only job is:
 
 1. **Call `save_observation()`** when you find something worth marking
-2. **That's it**
+2. **Call `search_observations()`** before starting work (see `self-search` skill)
+3. **That's it**
 
 The system handles:
-- Storage (DuckDB, immediate)
-- Indexing (FTS for search)
+- Storage (DuckDB, immediate CHECKPOINT)
+- Embedding (async Cloudflare bge-m3 for RAG search)
 - Push delivery (SubagentStart hook → buildSmartContext)
 - Pull availability (MCP tools for on-demand search)
 - Lifecycle (curator promotes repeated marks to rules/)
@@ -140,5 +154,4 @@ The system handles:
 You don't need to:
 - Notify other agents
 - Format marks for delivery
-- Tag marks with file paths (concepts handle searchability)
 - Worry about deduplication (curator handles it)

@@ -8,6 +8,7 @@ skills:
   - react-frontend
   - compress-output
   - self-mark
+  - self-search
 ---
 
 # mimir React Frontend (Web UI)

@@ -17,6 +17,7 @@ model: opus
 skills:
   - compress-output
   - self-mark
+  - self-search
 memory: project
 permissionMode: default
 ---

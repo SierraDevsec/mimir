@@ -5,7 +5,7 @@ description: >
   save_observation MCP tool when available (Agent Teams/tmux), falls back to
   curl HTTP API for Task tool subagents. Marks are stored in DuckDB and
   auto-surfaced to later agents working on related files.
-version: 3.0.0
+version: 4.0.0
 ---
 
 # Self-Marking Protocol
@@ -121,6 +121,9 @@ type: "decision", concepts: ["hono", "express", "sse", "server"], files: ["src/s
 
 See [references/surfacing.md](references/surfacing.md) for the full pipeline.
 
-**Short version**: Marks stored in DuckDB → SubagentStart hook queries marks
-by task-related files → injected as `additionalContext` into the next agent.
-You don't need to do anything — just mark and the system handles delivery.
+**Short version**: Marks are delivered two ways:
+- **Push** (automatic): SubagentStart hook injects relevant mark titles into your context
+- **Pull** (on-demand): `self-search` skill teaches when/how to search past marks
+
+Push gives you the top 5 most relevant marks automatically.
+Pull lets you dig deeper when you need specific knowledge.

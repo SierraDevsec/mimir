@@ -7,6 +7,7 @@ memory: project
 skills:
   - compress-output
   - self-mark
+  - self-search
 ---
 
 # mimir Node.js Backend

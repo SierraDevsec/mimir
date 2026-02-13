@@ -66,7 +66,7 @@ templates/
   hooks-config.json       — Hooks config template
   agents/                 — mimir-curator, mimir-reviewer
   agent-memory/           — Seed MEMORY.md files
-  skills/                 — compress-output, compress-review, self-mark, mimir-agents
+  skills/                 — compress-output, compress-review, self-mark, self-search, mimir-agents
   rules/                  — Swarm rules (team.md)
 ```
 
@@ -140,7 +140,8 @@ pnpm test:watch   # Watch mode
 
 ## Self-Marking System
 
-Agents mark important discoveries during work using the preloaded `self-mark` skill.
+Agents mark important discoveries during work using the preloaded `self-mark` skill,
+and search past marks before starting work using the `self-search` skill.
 
 ### Mechanism
 
@@ -191,17 +192,16 @@ Both use RAG (Cloudflare bge-m3 embedding + DuckDB cosine similarity) when avail
 - Falls back to ILIKE if embedding unavailable
 - No limit — returns full results ranked by relevance
 
-**When agents should pull** (add to self-mark skill or rules):
+**When agents should pull** (taught via `self-search` skill v1.0.0):
 
 | Timing | Trigger | Example |
 |--------|---------|---------|
-| Before starting a task | Search task keywords | `search("observation WAL persistence")` |
-| Before modifying a file | Search file path | `search("db.ts")` |
+| Before starting a task | Search task keywords | `search("WebSocket reconnection")` |
+| Before modifying a file | Search file path | `search("hook.sh")` |
 | When hitting an error | Search error keywords | `search("WAL corruption")` |
-| When making a decision | Search prior decisions | `search("Hono decision")` |
+| When making a decision | Search prior decisions | `search("Hono Express server")` |
 
-**Current state**: Push uses RAG (Phase 1 complete), pull tool uses RAG transparently.
-**TODO**: Update self-mark skill with search timing guide (Phase 3).
+**Current state**: Push + Pull both use RAG. Search timing guide in `self-search` skill (Phase 3 complete).
 
 ### Memory Hierarchy
 
@@ -358,9 +358,14 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 - JSON backup/restore includes `status` field
 - Files: `db.ts`, `observation-store.ts`, `relevantMarks.ts`, `src/mcp/server.ts`, `src/server/routes/api.ts`
 
-**Phase 3 — Search skill** ← NEXT:
-- Add search timing guide to self-mark skill or create dedicated search skill
-- Teaches agents when to call `search_observations` (before task, before file edit, on error, on decision)
+**Phase 3 — Search skill** ✅ DONE:
+- New `self-search` skill (v1.0.0) — separate from `self-mark` (write vs read concern separation)
+- Search timing guide: before task, before file edit, on error, before decision
+- MCP tool + curl fallback examples for `search_observations`
+- Anti-rationalizations table (parallel to marking rationalizations)
+- All agents preload both `self-mark` + `self-search`
+- surfacing.md updated to match actual code (budget 6000, titles directly injected, RAG Stage 9)
+- Files: `templates/skills/self-search/SKILL.md` (new), `templates/skills/self-mark/references/surfacing.md`
 
 ### Other
 

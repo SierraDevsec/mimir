@@ -8,6 +8,7 @@ permissionMode: plan
 skills:
   - compress-review
   - self-mark
+  - self-search
 ---
 
 # mimir Code Reviewer
