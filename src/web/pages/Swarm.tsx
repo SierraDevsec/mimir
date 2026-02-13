@@ -254,8 +254,8 @@ export default function Swarm() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between px-4 pt-4">
         <h2 className="text-2xl font-bold text-white">Claude Orchestration</h2>
         <div className="flex gap-2">
           <button
@@ -378,11 +378,11 @@ export default function Swarm() {
         </div>
       )}
 
-      {/* Message Area - Top 50% */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      {/* Message Area - Top */}
+      <div className="flex-1 min-h-0 px-4 py-4">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full">
         {/* Agent List & Swarm Sessions */}
-        <Card className="lg:col-span-1 space-y-4">
+        <Card className="lg:col-span-1 space-y-4 overflow-y-auto">
           {/* Active Swarm Sessions */}
           {swarmSessions.length > 0 && (
             <div>
@@ -465,7 +465,7 @@ export default function Swarm() {
         </Card>
 
         {/* Chat Area */}
-        <Card className="lg:col-span-3 flex flex-col h-[600px]">
+        <Card className="lg:col-span-3 flex flex-col overflow-hidden">
           {selectedAgent ? (
             <>
               <div className="flex items-center justify-between border-b border-zinc-800 pb-3 mb-3">
@@ -572,8 +572,8 @@ export default function Swarm() {
         </div>
       </div>
 
-      {/* Swarm Monitor - Bottom 50% */}
-      <div className="flex-1 min-h-0">
+      {/* Swarm Monitor - Bottom */}
+      <div className="shrink-0 h-[280px]">
         <SwarmMonitor projectId={selected} />
       </div>
     </div>

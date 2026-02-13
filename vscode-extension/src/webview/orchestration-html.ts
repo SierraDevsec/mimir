@@ -29,35 +29,34 @@ export function getOrchestrationHtml(port: number, projectId: string): string {
       height: 100vh;
     }
 
-    /* Tab bar — matches Electron's Layout.tsx swarm tab toggle */
+    /* Tab bar — matches SwarmMonitor Active Sessions bar */
     .tabbar {
       display: flex;
       align-items: center;
-      padding: 0 8px;
-      height: 36px;
+      padding: 12px;
       flex-shrink: 0;
-      background: #171717;
+      background: rgba(24, 24, 27, 0.5);
       border-bottom: 1px solid #262626;
-      gap: 4px;
+      gap: 8px;
     }
     .tab-btn {
-      padding: 5px 12px;
+      padding: 6px 12px;
       font-size: 12px;
       font-weight: 500;
       border: none;
-      border-radius: 4px;
+      border-radius: 8px;
       cursor: pointer;
       transition: all 0.15s;
-      background: transparent;
-      color: #a3a3a3;
+      background: #27272a;
+      color: #a1a1aa;
     }
     .tab-btn:hover {
-      background: #262626;
+      background: #3f3f46;
       color: #e5e5e5;
     }
     .tab-btn.active {
-      background: #404040;
-      color: #f5f5f5;
+      background: #059669;
+      color: #ffffff;
     }
     .tab-spacer { flex: 1; }
     .tab-hint {
