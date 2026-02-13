@@ -345,12 +345,13 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 - Files: `src/server/services/embedding.ts` (new), `observation-store.ts`, `db.ts`, `intelligence.ts`, `relevantMarks.ts`
 - Env: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`
 
-**Phase 2 — Mark lifecycle (resolved status)**:
+**Phase 2 — Mark lifecycle (resolved status)** ← NEXT:
 - Add `status` column to observations: `active` (default) | `resolved`
 - `active` marks → push + pull eligible
 - `resolved` marks → pull-only (searchable for history, excluded from RAG push)
-- Add `resolve_observation` MCP tool + API endpoint (`PATCH /api/observations/:id/resolve`)
-- Push query: `WHERE status = 'active'` + cosine similarity
+- Add `resolve_observation` MCP tool (`src/mcp/server.ts`) + API endpoint (`PATCH /api/observations/:id/resolve`)
+- Push queries: add `WHERE status = 'active'` to `getRelevantMarksRAG()`, `getProjectMarks()`, `getFileBasedMarks()`, `getSiblingMarks()`
+- Files to modify: `db.ts` (migration), `observation-store.ts` (resolveObservation), `relevantMarks.ts` (status filter), `src/mcp/server.ts` (new tool), `src/server/routes/api.ts` (new endpoint)
 
 **Phase 3 — Search skill** (after RAG):
 - Add search timing guide to self-mark skill or create dedicated search skill
