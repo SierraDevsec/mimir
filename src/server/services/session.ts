@@ -70,3 +70,13 @@ export async function getActiveSessionsCountByProject(projectId: string) {
   const result = await db.all(`SELECT COUNT(*) as count FROM sessions WHERE project_id = ? AND status = 'active'`, projectId);
   return extractCount(result);
 }
+
+export async function getProjectIdForSession(sessionId: string): Promise<string | null> {
+  try {
+    const db = await getDb();
+    const rows = await db.all(`SELECT project_id FROM sessions WHERE id = ?`, sessionId) as Array<{ project_id: string | null }>;
+    return rows[0]?.project_id ?? null;
+  } catch {
+    return null;
+  }
+}

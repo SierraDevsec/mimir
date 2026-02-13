@@ -234,27 +234,17 @@ server.tool(
   }
 );
 
-// ─── Progressive Disclosure: Observation Search Tools ───
-
-server.tool(
-  "__IMPORTANT",
-  `MANDATORY 3-LAYER SEARCH WORKFLOW for retrieving past marks and knowledge:
-
-1. search_observations(query) → Returns index only (~50-100 tokens/result). Start here.
-2. get_timeline(anchor_id) → Returns chronological context around a mark.
-3. get_details(ids) → Returns full details (~500-1000 tokens/result). Use sparingly.
-
-ALWAYS start with search_observations. NEVER skip to get_details directly.
-This saves ~10x tokens compared to fetching full details for every result.`,
-  {},
-  async () => ({
-    content: [{ type: "text" as const, text: "Use search_observations → get_timeline → get_details workflow." }],
-  })
-);
+// ─── Observation Search Tools (Progressive Disclosure) ───
 
 server.tool(
   "search_observations",
-  "Search past marks (warnings, decisions, discoveries) from this and previous sessions. Returns compact index (id, type, title, agent, time). Use get_details for full content.",
+  `Search past marks (warnings, decisions, discoveries) from this and previous sessions. Returns compact index (id, type, title, agent, time). Use get_details for full content.
+
+MANDATORY 3-LAYER SEARCH WORKFLOW for retrieving past marks and knowledge:
+1. search_observations(query) → Returns index only (~50-100 tokens/result). Start here.
+2. get_timeline(anchor_id) → Returns chronological context around a mark.
+3. get_details(ids) → Returns full details (~500-1000 tokens/result). Use sparingly.
+ALWAYS start with search_observations. NEVER skip to get_details directly.`,
   {
     query: z.string().describe("Search query (matches title, subtitle, narrative)"),
     type: z.enum(["warning", "decision", "discovery", "note"]).optional().describe("Filter by mark type"),

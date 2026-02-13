@@ -14,6 +14,7 @@ import {
   getRelevantMarksRAG,
 } from "./queries/index.js";
 import { isEmbeddingEnabled } from "./embedding.js";
+import { getProjectIdForSession } from "./session.js";
 
 /**
  * Smart context injection for SubagentStart.
@@ -76,14 +77,14 @@ export async function buildSmartContext(
 
   // 4. Past Marks — cross-session marks via RAG or file-based fallback
   try {
-    const db = await getDb();
-    const rows = await db.all(`SELECT project_id FROM sessions WHERE id = ?`, sessionId) as Array<{ project_id: string | null }>;
-    const projectId = rows[0]?.project_id;
+    const projectId = await getProjectIdForSession(sessionId);
     if (projectId) {
       let allMarks;
 
       if (isEmbeddingEnabled()) {
-        const taskDescs = tasks.map(t => t.title).join(" ");
+        const taskDescs = tasks.map(t =>
+          t.description ? `${t.title}: ${t.description}` : t.title
+        ).join(" | ");
         const contextText = `${agentName} ${agentType ?? ""} ${taskDescs}`.trim();
         allMarks = await getRelevantMarksRAG(projectId, contextText, sessionId, 5);
       } else {
@@ -223,9 +224,7 @@ export async function buildPromptContext(
 
   // Past marks (cross-session knowledge)
   try {
-    const db = await getDb();
-    const rows = await db.all(`SELECT project_id FROM sessions WHERE id = ?`, sessionId) as Array<{ project_id: string | null }>;
-    const projectId = rows[0]?.project_id;
+    const projectId = await getProjectIdForSession(sessionId);
     if (projectId) {
       const markRows = await getProjectMarks(projectId, sessionId, 5);
       if (markRows.length > 0) {

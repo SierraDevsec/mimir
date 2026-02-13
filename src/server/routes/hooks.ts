@@ -11,7 +11,6 @@ import { updateStatusline } from "../services/statusline.js";
 import { findPendingTaskForAgent, getInProgressTasksForAgent, updateTask } from "../services/task.js";
 import { addComment } from "../services/comment.js";
 import { broadcast } from "./ws.js";
-import { getDb } from "../db.js";
 import { getPromotionCandidates } from "../services/queries/promotionCandidates.js";
 import { getSession } from "../services/session.js";
 
@@ -70,16 +69,6 @@ async function extractFromTranscript(transcriptPath: string): Promise<Transcript
   return result;
 }
 
-
-async function getProjectIdForSession(sessionId: string): Promise<string | null> {
-  try {
-    const db = await getDb();
-    const rows = await db.all(`SELECT project_id FROM sessions WHERE id = ?`, sessionId) as Array<{ project_id: string | null }>;
-    return rows[0]?.project_id ?? null;
-  } catch {
-    return null;
-  }
-}
 
 const hooks = new Hono();
 
