@@ -73,6 +73,9 @@ export function buildEmbeddingText(title: string, narrative?: string | null, con
 }
 
 export async function updateObservationEmbedding(id: number, embedding: number[]): Promise<void> {
+  if (embedding.length !== EMBEDDING_DIM || !embedding.every(v => Number.isFinite(v))) {
+    throw new Error(`Invalid embedding: expected ${EMBEDDING_DIM} finite numbers, got ${embedding.length}`);
+  }
   const db = await getDb();
   const arrLiteral = `[${embedding.join(",")}]`;
   await db.run(

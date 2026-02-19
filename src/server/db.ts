@@ -8,11 +8,21 @@ const DATA_DIR = path.resolve(
 );
 
 let db: Database | null = null;
+let dbInitPromise: Promise<Database> | null = null;
 let checkpointTimer: ReturnType<typeof setInterval> | null = null;
 
 export async function getDb(): Promise<Database> {
   if (db) return db;
+  if (!dbInitPromise) {
+    dbInitPromise = initDb().catch((err) => {
+      dbInitPromise = null; // 실패 시 다음 호출에서 재시도 허용
+      throw err;
+    });
+  }
+  return dbInitPromise;
+}
 
+async function initDb(): Promise<Database> {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const dbPath = path.join(DATA_DIR, "mimir.duckdb");
 
@@ -329,6 +339,7 @@ export async function closeDb(): Promise<void> {
     try { await db.exec("CHECKPOINT"); } catch { /* best effort */ }
     await db.close();
     db = null;
+    dbInitPromise = null;
   }
 }
 

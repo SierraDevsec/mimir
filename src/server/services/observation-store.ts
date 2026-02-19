@@ -18,6 +18,12 @@ export function toVarcharArrayLiteral(arr: string[]): string | null {
   return `[${arr.map(s => `'${escapeForVarcharArray(s)}'`).join(",")}]`;
 }
 
+/** Build a SQL fragment for a VARCHAR[] column: `['a','b']::VARCHAR[]` or `NULL` */
+function toVarcharArraySql(arr: string[]): string {
+  const literal = toVarcharArrayLiteral(arr);
+  return literal ? `${literal}::VARCHAR[]` : "NULL";
+}
+
 export interface MarkInput {
   type: string;
   title: string;
@@ -53,17 +59,17 @@ export async function saveObservation(
   projectId: string, discoveryTokens: number = 0, source: string = "self-mark"
 ): Promise<number> {
   const db = await getDb();
+  const factsSql = toVarcharArraySql(obs.facts);
+  const conceptsSql = toVarcharArraySql(obs.concepts);
+  const filesReadSql = toVarcharArraySql(obs.files_read);
+  const filesModifiedSql = toVarcharArraySql(obs.files_modified);
   const result = await db.all(
     `INSERT INTO observations (session_id, agent_id, project_id, type, title, subtitle, narrative,
       facts, concepts, files_read, files_modified, discovery_tokens, source)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ${factsSql}, ${conceptsSql}, ${filesReadSql}, ${filesModifiedSql}, ?, ?)
      RETURNING id`,
     sessionId, agentId, projectId,
     obs.type, obs.title, obs.subtitle ?? null, obs.narrative ?? null,
-    toVarcharArrayLiteral(obs.facts),
-    toVarcharArrayLiteral(obs.concepts),
-    toVarcharArrayLiteral(obs.files_read),
-    toVarcharArrayLiteral(obs.files_modified),
     discoveryTokens, source
   );
   const id = Number((result[0] as { id: number }).id);
@@ -256,8 +262,7 @@ export async function updateObservation(
     params.push(updates.type);
   }
   if (updates.concepts !== undefined) {
-    sets.push("concepts = ?");
-    params.push(toVarcharArrayLiteral(updates.concepts));
+    sets.push(`concepts = ${toVarcharArraySql(updates.concepts)}`);
   }
   if (sets.length === 0) return false;
   params.push(id);

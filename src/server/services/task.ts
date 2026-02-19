@@ -1,5 +1,6 @@
 import { getDb } from "../db.js";
 import { deleteCommentsByTask } from "./comment.js";
+import { toVarcharArrayLiteral } from "./observation-store.js";
 
 export async function createTask(
   projectId: string | null,
@@ -11,7 +12,7 @@ export async function createTask(
 ): Promise<number> {
   const db = await getDb();
   const tagsSql = tags && tags.length > 0
-    ? `[${tags.map(t => `'${t.replace(/'/g, "''")}'`).join(",")}]::VARCHAR[]`
+    ? `${toVarcharArrayLiteral(tags)}::VARCHAR[]`
     : "NULL";
   const rows = await db.all(
     `INSERT INTO tasks (project_id, title, description, assigned_to, status, tags)
@@ -58,7 +59,7 @@ export async function updateTask(
 ): Promise<boolean> {
   const db = await getDb();
   const updates: string[] = [];
-  const values: any[] = [];
+  const values: (string | number | null)[] = [];
 
   if (fields.status !== undefined) {
     updates.push("status = ?");
@@ -78,8 +79,7 @@ export async function updateTask(
   }
   if (fields.tags !== undefined) {
     if (fields.tags && fields.tags.length > 0) {
-      const tagsSql = `[${fields.tags.map(t => `'${t.replace(/'/g, "''")}'`).join(",")}]::VARCHAR[]`;
-      updates.push(`tags = ${tagsSql}`);
+      updates.push(`tags = ${toVarcharArrayLiteral(fields.tags)}::VARCHAR[]`);
     } else {
       updates.push("tags = NULL");
     }
@@ -100,10 +100,9 @@ export async function updateTask(
 
 export async function deleteTask(id: number): Promise<boolean> {
   const db = await getDb();
-  const rows = await db.all(`DELETE FROM tasks WHERE id = ? RETURNING id`, id);
-  if (rows.length === 0) return false;
   await deleteCommentsByTask(id);
-  return true;
+  const rows = await db.all(`DELETE FROM tasks WHERE id = ? RETURNING id`, id);
+  return rows.length > 0;
 }
 
 export async function findPendingTaskForAgent(

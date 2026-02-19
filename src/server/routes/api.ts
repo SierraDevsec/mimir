@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { z } from "zod";
+import { getDb } from "../db.js";
 import { getSession, endSession, getSessionsByProject, getActiveSessionsByProject, getSessionsCountByProject, getActiveSessionsCountByProject } from "../services/session.js";
 import { getAgentsBySession, getAgent, stopAgent, updateAgentSummary, deleteAgent, getAgentsByProject, getActiveAgentsByProject, getAgentsCountByProject, getActiveAgentsCountByProject } from "../services/agent.js";
 import { getContextBySession, getContextByAgent, deleteContextByType, getContextEntriesCountByProject } from "../services/context.js";
@@ -24,7 +26,107 @@ import { createFlow, getFlow, getFlowsByProject, updateFlow, deleteFlow } from "
 
 const api = new Hono();
 
-api.get("/health", (c) => c.json({ status: "ok", uptime: process.uptime() }));
+/** Parse integer URL param; returns null if NaN (triggers 400) */
+function parseId(param: string): number | null {
+  const n = parseInt(param, 10);
+  return isNaN(n) ? null : n;
+}
+
+// --- Input validation schemas ---
+const TaskCreateSchema = z.object({
+  project_id: z.string().optional(),
+  title: z.string().min(1).max(500),
+  description: z.string().max(10000).nullable().optional(),
+  assigned_to: z.string().max(100).nullable().optional(),
+  status: z.enum(["idea", "pending", "in_progress", "completed", "cancelled"]).optional(),
+  tags: z.array(z.string().max(100)).max(20).nullable().optional(),
+});
+
+const TaskUpdateSchema = z.object({
+  title: z.string().min(1).max(500).optional(),
+  description: z.string().max(10000).nullable().optional(),
+  status: z.enum(["idea", "pending", "in_progress", "completed", "cancelled"]).optional(),
+  assigned_to: z.string().max(100).nullable().optional(),
+  tags: z.array(z.string().max(100)).max(20).nullable().optional(),
+  changed_by: z.string().max(100).optional(),
+});
+
+const ObservationUpdateSchema = z.object({
+  text: z.string().min(1).max(10000).optional(),
+  type: z.enum(["warning", "decision", "discovery", "note"]).optional(),
+  concepts: z.array(z.string().max(100)).max(50).optional(),
+});
+
+const ObservationCreateSchema = z.object({
+  project_id: z.string().min(1),
+  text: z.string().min(1).max(10000),
+  type: z.enum(["warning", "decision", "discovery", "note"]).optional(),
+  concepts: z.array(z.string().max(100)).max(50).optional(),
+  files: z.array(z.string().max(500)).max(100).optional(),
+  session_id: z.string().optional(),
+  agent_id: z.string().optional(),
+});
+
+const ObservationPromoteSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1).max(500),
+  promoted_to: z.string().min(1).max(500),
+});
+
+const MessageCreateSchema = z.object({
+  project_id: z.string().min(1),
+  from_name: z.string().min(1).max(100),
+  to_name: z.string().min(1).max(100),
+  content: z.string().min(1).max(50000),
+  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+  session_id: z.string().optional(),
+});
+
+const CommentCreateSchema = z.object({
+  content: z.string().min(1).max(10000),
+  author: z.string().max(100).nullable().optional(),
+  comment_type: z.enum(["note", "status_change", "review", "blocker"]).optional(),
+});
+
+const FlowCreateSchema = z.object({
+  project_id: z.string().min(1),
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).nullable().optional(),
+  mermaid_code: z.string().min(1).max(100000),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+const FlowUpdateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  mermaid_code: z.string().min(1).max(100000).optional(),
+  status: z.enum(["draft", "active", "archived"]).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+const SessionPatchSchema = z.object({
+  status: z.literal("ended"),
+});
+
+const MessagePatchSchema = z.object({
+  status: z.literal("read"),
+});
+
+const RegistryCreateSchema = z.object({
+  agent_name: z.string().min(1).max(100),
+  project_id: z.string().min(1),
+  tmux_pane: z.string().max(100).nullable().optional(),
+  session_id: z.string().nullable().optional(),
+});
+
+api.get("/health", async (c) => {
+  try {
+    const db = await getDb();
+    await db.all("SELECT 1");
+    return c.json({ status: "ok", uptime: process.uptime(), db: "ok" });
+  } catch {
+    return c.json({ status: "degraded", uptime: process.uptime(), db: "error" }, 503);
+  }
+});
 
 api.get("/projects", async (c) => c.json(await getAllProjects()));
 
@@ -63,8 +165,9 @@ api.patch("/sessions/:id", async (c) => {
   const id = c.req.param("id");
   const session = await getSession(id);
   if (!session) return c.json({ error: "not found" }, 404);
-  const body = await c.req.json();
-  if (body.status === "ended") {
+  const parsed = SessionPatchSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "invalid body", details: parsed.error.flatten() }, 400);
+  if (parsed.data.status === "ended") {
     await endSession(id);
     broadcast("SessionEnd", { session_id: id });
   }
@@ -117,15 +220,17 @@ api.get("/tasks", async (c) => {
 });
 
 api.get("/tasks/:id", async (c) => {
-  const task = await getTask(parseInt(c.req.param("id"), 10));
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
+  const task = await getTask(id);
   if (!task) return c.json({ error: "not found" }, 404);
   return c.json(task);
 });
 
 api.post("/tasks", async (c) => {
-  const body = await c.req.json();
-  const { project_id, title, description, assigned_to, status, tags } = body;
-  if (!title) return c.json({ error: "title required" }, 400);
+  const parsed = TaskCreateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const { project_id, title, description, assigned_to, status, tags } = parsed.data;
   const id = await createTask(
     project_id ?? null,
     title,
@@ -139,8 +244,11 @@ api.post("/tasks", async (c) => {
 });
 
 api.patch("/tasks/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
-  const body = await c.req.json();
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
+  const parsed = TaskUpdateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const body = parsed.data;
   const oldTask = await getTask(id);
   if (!oldTask) return c.json({ error: "not found" }, 404);
 
@@ -159,7 +267,8 @@ api.patch("/tasks/:id", async (c) => {
 });
 
 api.delete("/tasks/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const deleted = await deleteTask(id);
   if (!deleted) return c.json({ error: "not found" }, 404);
   broadcast("task_deleted", { id });
@@ -167,20 +276,18 @@ api.delete("/tasks/:id", async (c) => {
 });
 
 api.get("/tasks/:id/comments", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   return c.json(await getCommentsByTask(id));
 });
 
 api.post("/tasks/:id/comments", async (c) => {
-  const taskId = parseInt(c.req.param("id"), 10);
-  const body = await c.req.json();
-  if (!body.content) return c.json({ error: "content required" }, 400);
-  const id = await addComment(
-    taskId,
-    body.author ?? null,
-    body.comment_type ?? "note",
-    body.content
-  );
+  const taskId = parseId(c.req.param("id"));
+  if (taskId === null) return c.json({ error: "invalid id" }, 400);
+  const parsed = CommentCreateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const { content, author, comment_type } = parsed.data;
+  const id = await addComment(taskId, author ?? null, comment_type ?? "note", content);
   return c.json({ ok: true, id }, 201);
 });
 
@@ -253,20 +360,13 @@ api.get("/usage/total-tokens", async (c) => {
 
 // Messages
 api.post("/messages", async (c) => {
-  let body: Record<string, unknown>;
-  try {
-    body = await c.req.json();
-  } catch {
-    return c.json({ error: "Invalid JSON in request body" }, 400);
-  }
-  const { project_id, from_name, to_name, content, priority, session_id } = body;
-  if (!project_id || !from_name || !to_name || !content) {
-    return c.json({ error: "project_id, from_name, to_name, content required" }, 400);
-  }
-  const id = await sendMessage(project_id as string, from_name as string, to_name as string, content as string, (priority ?? "normal") as string, (session_id ?? null) as string | null);
+  const parsed = MessageCreateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const { project_id, from_name, to_name, content, priority, session_id } = parsed.data;
+  const id = await sendMessage(project_id, from_name, to_name, content, priority ?? "normal", session_id ?? null);
   broadcast("message_sent", { id, project_id, from_name, to_name, priority: priority ?? "normal" });
   // Async tmux notification — fire and forget
-  notifyAgent(to_name as string, project_id as string, from_name as string).catch(() => {});
+  notifyAgent(to_name, project_id, from_name).catch(() => {});
   return c.json({ ok: true, id }, 201);
 });
 
@@ -280,11 +380,13 @@ api.get("/messages", async (c) => {
 });
 
 api.patch("/messages/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const msg = await getMessage(id);
   if (!msg) return c.json({ error: "not found" }, 404);
-  const body = await c.req.json();
-  if (body.status === "read") {
+  const parsed = MessagePatchSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "invalid body", details: parsed.error.flatten() }, 400);
+  if (parsed.data.status === "read") {
     await markAsRead(id);
     broadcast("message_read", { id });
   }
@@ -292,7 +394,8 @@ api.patch("/messages/:id", async (c) => {
 });
 
 api.delete("/messages/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const deleted = await deleteMessage(id);
   if (!deleted) return c.json({ error: "not found" }, 404);
   broadcast("message_deleted", { id });
@@ -301,11 +404,9 @@ api.delete("/messages/:id", async (c) => {
 
 // Agent Registry (tmux pane mapping)
 api.post("/registry", async (c) => {
-  const body = await c.req.json();
-  const { agent_name, project_id, tmux_pane, session_id } = body;
-  if (!agent_name || !project_id) {
-    return c.json({ error: "agent_name, project_id required" }, 400);
-  }
+  const parsed = RegistryCreateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "invalid body", details: parsed.error.flatten() }, 400);
+  const { agent_name, project_id, tmux_pane, session_id } = parsed.data;
   await registerAgent(agent_name, project_id, tmux_pane ?? null, session_id ?? null);
   broadcast("agent_registered", { agent_name, project_id, tmux_pane });
   return c.json({ ok: true }, 201);
@@ -544,11 +645,9 @@ api.get("/observations/promotion-candidates", async (c) => {
 });
 
 api.post("/observations/promote", async (c) => {
-  const body = await c.req.json();
-  const { ids, promoted_to } = body;
-  if (!ids || !Array.isArray(ids) || !promoted_to) {
-    return c.json({ error: "ids (array) and promoted_to (string) required" }, 400);
-  }
+  const parsed = ObservationPromoteSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const { ids, promoted_to } = parsed.data;
   await markAsPromoted(ids, promoted_to);
   broadcast("marks_promoted", { ids, promoted_to });
   return c.json({ ok: true, count: ids.length });
@@ -562,14 +661,16 @@ api.get("/observations/details", async (c) => {
 });
 
 api.get("/observations/:id/timeline", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const before = parseInt(c.req.query("before") ?? "3", 10);
   const after = parseInt(c.req.query("after") ?? "3", 10);
   return c.json(await getObservationTimeline(id, before, after));
 });
 
 api.patch("/observations/:id/resolve", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const resolved = await resolveObservation(id);
   if (!resolved) return c.json({ error: "not found or already resolved" }, 404);
   broadcast("observation_resolved", { id });
@@ -577,7 +678,8 @@ api.patch("/observations/:id/resolve", async (c) => {
 });
 
 api.delete("/observations/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const deleted = await deleteObservation(id);
   if (!deleted) return c.json({ error: "not found" }, 404);
   broadcast("observation_deleted", { id });
@@ -585,8 +687,11 @@ api.delete("/observations/:id", async (c) => {
 });
 
 api.patch("/observations/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
-  const body = await c.req.json();
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
+  const parsed = ObservationUpdateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const body = parsed.data;
   const updated = await updateObservation(id, body);
   if (!updated) return c.json({ error: "not found or no changes" }, 404);
   broadcast("observation_updated", { id, ...body });
@@ -594,11 +699,11 @@ api.patch("/observations/:id", async (c) => {
 });
 
 api.post("/observations", async (c) => {
-  const body = await c.req.json();
-  const { project_id, text, type, concepts, files, session_id, agent_id } = body;
-  if (!project_id || !text) return c.json({ error: "project_id and text required" }, 400);
+  const parsed = ObservationCreateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const { project_id, text, type, concepts, files, session_id, agent_id } = parsed.data;
 
-  const fileList: string[] = Array.isArray(files) ? files : [];
+  const fileList: string[] = files ?? [];
   const obs = {
     type: type ?? "note",
     title: text.slice(0, 100),
@@ -645,33 +750,30 @@ api.get("/flows", async (c) => {
 });
 
 api.get("/flows/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const flow = await getFlow(id);
   if (!flow) return c.json({ error: "not found" }, 404);
   return c.json(flow);
 });
 
 api.post("/flows", async (c) => {
-  const body = await c.req.json();
-  const { project_id, name, description, mermaid_code, metadata } = body;
-  if (!project_id || !name) return c.json({ error: "project_id and name required" }, 400);
-  if (!mermaid_code) return c.json({ error: "mermaid_code required" }, 400);
-  const id = await createFlow(
-    project_id,
-    name,
-    mermaid_code,
-    description ?? null,
-    metadata ?? {}
-  );
+  const parsed = FlowCreateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const { project_id, name, description, mermaid_code, metadata } = parsed.data;
+  const id = await createFlow(project_id, name, mermaid_code, description ?? null, metadata ?? {});
   broadcast("flow_created", { id, name, project_id });
   return c.json({ ok: true, id }, 201);
 });
 
 api.patch("/flows/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const flow = await getFlow(id);
   if (!flow) return c.json({ error: "not found" }, 404);
-  const body = await c.req.json();
+  const parsed = FlowUpdateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid input" }, 400);
+  const body = parsed.data;
   const updated = await updateFlow(id, body);
   if (!updated) return c.json({ error: "no changes" }, 400);
   broadcast("flow_updated", { id, ...body });
@@ -679,7 +781,8 @@ api.patch("/flows/:id", async (c) => {
 });
 
 api.delete("/flows/:id", async (c) => {
-  const id = parseInt(c.req.param("id"), 10);
+  const id = parseId(c.req.param("id"));
+  if (id === null) return c.json({ error: "invalid id" }, 400);
   const deleted = await deleteFlow(id);
   if (!deleted) return c.json({ error: "not found" }, 404);
   broadcast("flow_deleted", { id });
