@@ -2,6 +2,21 @@ import { getDb } from "../db.js";
 import { deleteCommentsByTask } from "./comment.js";
 import { toVarcharArrayLiteral } from "./observation-store.js";
 
+export interface TaskRow {
+  id: number;
+  project_id: string | null;
+  title: string;
+  description: string | null;
+  status: string;
+  assigned_to: string | null;
+  tags: string[] | null;
+  flow_id: number | null;
+  flow_node_id: string | null;
+  depends_on: number[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function createTask(
   projectId: string | null,
   title: string,
@@ -22,9 +37,9 @@ export async function createTask(
   return Number((rows[0] as { id: number }).id);
 }
 
-export async function getTask(id: number) {
+export async function getTask(id: number): Promise<TaskRow | null> {
   const db = await getDb();
-  const rows = await db.all(`SELECT * FROM tasks WHERE id = ?`, id);
+  const rows = await db.all(`SELECT * FROM tasks WHERE id = ?`, id) as TaskRow[];
   return rows.length > 0 ? rows[0] : null;
 }
 
@@ -35,16 +50,16 @@ export async function updateTaskStatus(id: number, status: string): Promise<void
   );
 }
 
-export async function getTasksByProject(projectId: string) {
+export async function getTasksByProject(projectId: string): Promise<TaskRow[]> {
   const db = await getDb();
   return db.all(
     `SELECT * FROM tasks WHERE project_id = ? ORDER BY created_at DESC`, projectId
-  );
+  ) as Promise<TaskRow[]>;
 }
 
-export async function getAllTasks() {
+export async function getAllTasks(): Promise<TaskRow[]> {
   const db = await getDb();
-  return db.all(`SELECT * FROM tasks ORDER BY created_at DESC`);
+  return db.all(`SELECT * FROM tasks ORDER BY created_at DESC`) as Promise<TaskRow[]>;
 }
 
 export async function updateTask(

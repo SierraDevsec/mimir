@@ -1,4 +1,4 @@
-import { getDb, checkpoint } from "../db.js";
+import { getDb } from "../db.js";
 
 export interface FlowRow {
   id: number;
@@ -27,7 +27,6 @@ export async function createFlow(
     projectId, name, description, mermaidCode, JSON.stringify(metadata)
   );
   const id = Number((rows[0] as { id: number }).id);
-  await checkpoint();
   return id;
 }
 
@@ -94,7 +93,6 @@ export async function updateFlow(
     `UPDATE flows SET ${updates.join(", ")} WHERE id = ?`,
     ...values
   );
-  await checkpoint();
   return true;
 }
 
@@ -103,6 +101,5 @@ export async function deleteFlow(id: number): Promise<boolean> {
   // Clear flow_id from any linked tasks
   await db.run(`UPDATE tasks SET flow_id = NULL, flow_node_id = NULL WHERE flow_id = ?`, id);
   const result = await db.all(`DELETE FROM flows WHERE id = ? RETURNING id`, id);
-  if (result.length > 0) await checkpoint();
   return result.length > 0;
 }

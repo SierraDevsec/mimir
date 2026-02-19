@@ -5,11 +5,24 @@
  * Persistence: After each write, CHECKPOINT flushes WAL → DB immediately.
  */
 import { getDb, checkpoint } from "../db.js";
-import { isEmbeddingEnabled, generateEmbedding, updateObservationEmbedding, buildEmbeddingText } from "./embedding.js";
+import { isEmbeddingEnabled, generateEmbedding, updateObservationEmbedding, buildEmbeddingText, backfillEmbeddings } from "./embedding.js";
+
+// Backfill missing embeddings every 30 minutes
+setInterval(async () => {
+  try {
+    await backfillEmbeddings();
+  } catch (e) {
+    console.error('[observation-store] backfill error:', e);
+  }
+}, 30 * 60 * 1000);
 
 /** Escape a string for DuckDB VARCHAR[] literal: handle both single-quotes and backslashes */
 function escapeForVarcharArray(s: string): string {
-  return s.replace(/\\/g, "\\\\").replace(/'/g, "''");
+  return s
+    .replace(/\0/g, '')               // NUL 바이트 제거
+    .replace(/[\x01-\x1f\x7f]/g, '') // 제어문자 제거
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "''");
 }
 
 /** Build a DuckDB VARCHAR[] literal from a string array, or null if empty */

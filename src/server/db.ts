@@ -71,6 +71,14 @@ async function initSchema(db: Database): Promise<void> {
   `);
 
   await db.exec(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      version    INTEGER PRIMARY KEY,
+      name       VARCHAR NOT NULL,
+      applied_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
+
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id         VARCHAR PRIMARY KEY,
       name       VARCHAR NOT NULL,

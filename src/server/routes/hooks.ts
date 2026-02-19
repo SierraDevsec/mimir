@@ -14,6 +14,46 @@ import { broadcast } from "./ws.js";
 import { getPromotionCandidates } from "../services/queries/promotionCandidates.js";
 import { getSession } from "../services/session.js";
 
+interface HookBody {
+  session_id?: string;
+  agent_id?: string;
+  agent_name?: string;
+  agent_type?: string;
+  parent_agent_id?: string;
+  cwd?: string;
+  project_path?: string;
+  transcript_path?: string;
+  agent_transcript_path?: string;
+  context_summary?: string;
+  hook_event_name?: string;
+  tool_name?: string;
+  tool?: string;
+  tool_input?: Record<string, unknown>;
+  tool_response?: unknown;
+  result?: unknown;
+  prompt?: string;
+  message?: string;
+  reason?: string;
+  entry_type?: string;
+  content?: string;
+  tags?: string[] | null;
+  task_title?: string;
+  title?: string;
+  project_id?: string;
+  project_name?: string;
+  directory?: string;
+  git_branch?: string;
+  model?: string;
+  cli_version?: string;
+  context_pct?: number;
+  session_pct?: number;
+  session_reset?: string;
+  rolling_5h_pct?: number;
+  rolling_5h_cost?: string;
+  weekly_pct?: number;
+  weekly_cost?: string;
+}
+
 interface TranscriptUsage {
   input_tokens: number;
   output_tokens: number;
@@ -74,7 +114,7 @@ const hooks = new Hono();
 
 hooks.post("/:event", async (c) => {
   const event = c.req.param("event");
-  const body = await c.req.json().catch(() => ({}));
+  const body: HookBody = await c.req.json().catch(() => ({}));
   const sessionId = body.session_id ?? "unknown";
 
   try {
@@ -170,7 +210,7 @@ hooks.post("/:event", async (c) => {
         const agentId = body.agent_id ?? null;
         const agentTranscriptPath = body.agent_transcript_path ?? null;
         // Claude Code doesn't send context_summary — extract from transcript
-        let contextSummary = body.context_summary ?? body.result ?? null;
+        let contextSummary: string | null = body.context_summary ?? (typeof body.result === "string" ? body.result : null);
         let inputTokens = 0;
         let outputTokens = 0;
 
@@ -256,7 +296,7 @@ hooks.post("/:event", async (c) => {
         const toolInput = body.tool_input ?? {};
 
         if (toolName === "Edit" || toolName === "Write") {
-          const filePath = toolInput.file_path ?? toolInput.path ?? "unknown";
+          const filePath = String(toolInput.file_path ?? toolInput.path ?? "unknown");
           const changeType = toolName === "Write" ? "create" : "edit";
           await recordFileChange(sessionId, agentId, filePath, changeType);
         }
@@ -304,17 +344,29 @@ hooks.post("/:event", async (c) => {
       case "TeammateIdle": {
         const agentId = body.agent_id ?? null;
         const agentName = body.agent_name ?? body.agent_type ?? "unknown";
+        const agentType = body.agent_type ?? null;
 
         if (agentId) {
-          // Update agent status to idle in DB
+          // Update agent status to active (re-activate on idle) using single UPDATE
           try {
-            const agent = await getAgent(agentId);
-            if (agent) {
-              await stopAgent(agentId, agent.context_summary ?? null, 0, 0);
-              await startAgent(agentId, sessionId, agentName, agent.agent_type ?? null, agent.parent_agent_id ?? null);
+            const { getDb } = await import("../db.js");
+            const db = await getDb();
+            // Check if agent exists first, then UPDATE or INSERT
+            const existing = await db.all(
+              `SELECT id FROM agents WHERE id=? AND session_id=?`,
+              agentId, sessionId
+            );
+            if (existing.length > 0) {
+              await db.run(
+                `UPDATE agents SET status='active', updated_at=now() WHERE id=? AND session_id=?`,
+                agentId, sessionId
+              );
+            } else {
+              // Agent not in DB yet (teams mode — not started via SubagentStart)
+              await startAgent(agentId, sessionId, agentName, agentType, null);
             }
-          } catch {
-            // Agent may not exist in DB (teams mode — not started via SubagentStart)
+          } catch (e) {
+            console.debug('[hooks] TeammateIdle error:', e);
           }
         }
 

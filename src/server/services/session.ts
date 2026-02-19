@@ -31,19 +31,27 @@ export async function endSession(id: string): Promise<void> {
   );
 }
 
-export async function getActiveSessions() {
-  const db = await getDb();
-  return db.all(`SELECT * FROM sessions WHERE status = 'active' ORDER BY started_at DESC`);
+export interface SessionRow {
+  id: string;
+  project_id: string | null;
+  started_at: string;
+  ended_at: string | null;
+  status: string;
 }
 
-export async function getAllSessions() {
+export async function getActiveSessions(): Promise<SessionRow[]> {
   const db = await getDb();
-  return db.all(`SELECT * FROM sessions ORDER BY started_at DESC`);
+  return db.all(`SELECT * FROM sessions WHERE status = 'active' ORDER BY started_at DESC`) as Promise<SessionRow[]>;
 }
 
-export async function getSession(id: string) {
+export async function getAllSessions(): Promise<SessionRow[]> {
   const db = await getDb();
-  const rows = await db.all(`SELECT * FROM sessions WHERE id = ?`, id);
+  return db.all(`SELECT * FROM sessions ORDER BY started_at DESC`) as Promise<SessionRow[]>;
+}
+
+export async function getSession(id: string): Promise<SessionRow | null> {
+  const db = await getDb();
+  const rows = await db.all(`SELECT * FROM sessions WHERE id = ?`, id) as SessionRow[];
   return rows[0] ?? null;
 }
 
@@ -59,14 +67,14 @@ export async function getActiveSessionsCount() {
   return extractCount(result);
 }
 
-export async function getSessionsByProject(projectId: string) {
+export async function getSessionsByProject(projectId: string): Promise<SessionRow[]> {
   const db = await getDb();
-  return db.all(`SELECT * FROM sessions WHERE project_id = ? ORDER BY started_at DESC`, projectId);
+  return db.all(`SELECT * FROM sessions WHERE project_id = ? ORDER BY started_at DESC`, projectId) as Promise<SessionRow[]>;
 }
 
-export async function getActiveSessionsByProject(projectId: string) {
+export async function getActiveSessionsByProject(projectId: string): Promise<SessionRow[]> {
   const db = await getDb();
-  return db.all(`SELECT * FROM sessions WHERE project_id = ? AND status = 'active' ORDER BY started_at DESC`, projectId);
+  return db.all(`SELECT * FROM sessions WHERE project_id = ? AND status = 'active' ORDER BY started_at DESC`, projectId) as Promise<SessionRow[]>;
 }
 
 export async function getSessionsCountByProject(projectId: string) {

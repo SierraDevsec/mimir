@@ -118,6 +118,21 @@ const RegistryCreateSchema = z.object({
   session_id: z.string().nullable().optional(),
 });
 
+const PatchAgentSchema = z.object({
+  status: z.enum(["completed"]).optional(),
+  context_summary: z.string().max(10000).optional(),
+});
+
+const TmuxSessionSchema = z.object({
+  project_id: z.string().min(1),
+});
+
+const TmuxPaneSchema = z.object({
+  session_name: z.string().min(1),
+  agent_name: z.string().optional(),
+  start_claude: z.boolean().optional(),
+});
+
 api.get("/health", async (c) => {
   try {
     const db = await getDb();
@@ -199,11 +214,15 @@ api.patch("/agents/:id", async (c) => {
   const id = c.req.param("id");
   const agent = await getAgent(id);
   if (!agent) return c.json({ error: "not found" }, 404);
-  const body = await c.req.json();
-  if (body.status === "completed") {
-    await stopAgent(id, body.context_summary ?? "Manually stopped via UI");
-  } else if (body.context_summary !== undefined) {
-    await updateAgentSummary(id, body.context_summary);
+  const parsed = PatchAgentSchema.safeParse(await c.req.json());
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request body", details: parsed.error.flatten() }, 400);
+  }
+  const { status, context_summary } = parsed.data;
+  if (status === "completed") {
+    await stopAgent(id, context_summary ?? "Manually stopped via UI");
+  } else if (context_summary !== undefined) {
+    await updateAgentSummary(id, context_summary);
   }
   return c.json({ ok: true });
 });
@@ -429,11 +448,11 @@ api.delete("/registry/:agent_name", async (c) => {
 
 // Tmux Session Management
 api.post("/tmux/sessions", async (c) => {
-  const body = await c.req.json();
-  const { project_id } = body;
-  if (!project_id) {
-    return c.json({ error: "project_id required" }, 400);
+  const parsed = TmuxSessionSchema.safeParse(await c.req.json());
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request body", details: parsed.error.flatten() }, 400);
   }
+  const { project_id } = parsed.data;
   try {
     const sessionName = await createTmuxSession(project_id);
     broadcast("tmux_session_created", { session_name: sessionName, project_id });
@@ -469,11 +488,11 @@ api.delete("/tmux/sessions/:name", async (c) => {
 
 // Tmux Pane Management
 api.post("/tmux/panes", async (c) => {
-  const body = await c.req.json();
-  const { session_name, agent_name, start_claude } = body;
-  if (!session_name) {
-    return c.json({ error: "session_name required" }, 400);
+  const parsed = TmuxPaneSchema.safeParse(await c.req.json());
+  if (!parsed.success) {
+    return c.json({ error: "Invalid request body", details: parsed.error.flatten() }, 400);
   }
+  const { session_name, agent_name, start_claude } = parsed.data;
   try {
     const paneId = await createPane(
       session_name,

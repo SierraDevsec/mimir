@@ -2,6 +2,17 @@ import type { WSContext } from "hono/ws";
 
 const clients = new Set<WSContext>();
 
+setInterval(() => {
+  const msg = JSON.stringify({ event: 'ping', timestamp: new Date().toISOString() });
+  for (const client of clients) {
+    try {
+      client.send(msg);
+    } catch {
+      clients.delete(client);
+    }
+  }
+}, 30_000);
+
 export function addClient(ws: WSContext): void {
   clients.add(ws);
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { spawn, execSync } from "node:child_process";
+import { spawn, execSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -545,11 +545,12 @@ program
     const leaderModel = MODEL_MAP[opts.leaderModel] ?? opts.leaderModel;
 
     // Check tmux is available
-    try {
-      execSync("tmux -V", { stdio: "ignore" });
-    } catch {
-      console.error("[mimir] tmux is not installed. Install tmux first.");
-      process.exit(1);
+    {
+      const result = spawnSync("tmux", ["-V"], { stdio: "ignore" });
+      if (result.status !== 0) {
+        console.error("[mimir] tmux is not installed. Install tmux first.");
+        process.exit(1);
+      }
     }
 
     // Detect project ID from current directory
@@ -561,43 +562,42 @@ program
       await fetch(`${MIMIR_URL}/api/health`);
     } catch {
       console.log("[mimir] Daemon not running, starting...");
-      execSync(`node ${path.resolve(import.meta.dirname ?? ".", "../cli/index.js")} start`, { stdio: "inherit" });
+      spawnSync("node", [path.resolve(import.meta.dirname ?? ".", "../cli/index.js"), "start"], { stdio: "inherit" });
       await new Promise(r => setTimeout(r, 2000));
     }
 
     const sessionName = `mimir-swarm-${Date.now()}`;
 
     // Pane 0: orchestrator (always opus)
-    execSync(
-      `tmux new-session -d -s '${sessionName}' -e MIMIR_AGENT_NAME='orchestrator' -e MIMIR_PROJECT_ID='${projectId}'`,
-      { stdio: "ignore" }
-    );
-    execSync(
-      `tmux send-keys -t '${sessionName}' 'unset CLAUDECODE && claude --model ${leaderModel}' Enter`,
-      { stdio: "ignore" }
-    );
+    spawnSync("tmux", [
+      "new-session", "-d", "-s", sessionName,
+      "-e", `MIMIR_AGENT_NAME=orchestrator`,
+      "-e", `MIMIR_PROJECT_ID=${projectId}`,
+    ], { stdio: "ignore" });
+    spawnSync("tmux", [
+      "send-keys", "-t", sessionName,
+      `unset CLAUDECODE && claude --model ${leaderModel}`, "Enter",
+    ], { stdio: "ignore" });
     console.log(`[mimir] tmux session: ${sessionName}`);
     console.log(`[mimir] Orchestrator (${leaderModel}) → pane 0`);
 
     // Create agent panes
     for (let i = 0; i < agents.length; i++) {
       const { name, model } = agents[i];
-      execSync(
-        `tmux split-window -t '${sessionName}' -e MIMIR_AGENT_NAME='${name}' -e MIMIR_PROJECT_ID='${projectId}'`,
-        { stdio: "ignore" }
-      );
-      execSync(
-        `tmux send-keys -t '${sessionName}' 'unset CLAUDECODE && claude --model ${model}' Enter`,
-        { stdio: "ignore" }
-      );
+      spawnSync("tmux", [
+        "split-window", "-t", sessionName,
+        "-e", `MIMIR_AGENT_NAME=${name}`,
+        "-e", `MIMIR_PROJECT_ID=${projectId}`,
+      ], { stdio: "ignore" });
+      spawnSync("tmux", [
+        "send-keys", "-t", sessionName,
+        `unset CLAUDECODE && claude --model ${model}`, "Enter",
+      ], { stdio: "ignore" });
       console.log(`[mimir] Agent "${name}" (${model}) → pane ${i + 1}`);
     }
 
     // Apply layout
-    execSync(
-      `tmux select-layout -t '${sessionName}' '${opts.layout}'`,
-      { stdio: "ignore" }
-    );
+    spawnSync("tmux", ["select-layout", "-t", sessionName, opts.layout], { stdio: "ignore" });
 
     // Wait for Claude sessions to start
     console.log("[mimir] Waiting for Claude sessions to initialize...");
@@ -894,19 +894,19 @@ program
 
     if (opts.background) {
       // Run in tmux background
-      try {
-        execSync("tmux -V", { stdio: "ignore" });
-      } catch {
-        console.error("[mimir] tmux is not installed. Install tmux first.");
-        process.exit(1);
+      {
+        const result = spawnSync("tmux", ["-V"], { stdio: "ignore" });
+        if (result.status !== 0) {
+          console.error("[mimir] tmux is not installed. Install tmux first.");
+          process.exit(1);
+        }
       }
 
       const sessionName = `mimir-curate-${Date.now()}`;
-      const escapedPrompt = statsText.replace(/'/g, "'\\''");
-      execSync(
-        `tmux new-session -d -s '${sessionName}' "claude --agent=mimir-curator --prompt '${escapedPrompt}'"`,
-        { stdio: "ignore" }
-      );
+      spawnSync("tmux", [
+        "new-session", "-d", "-s", sessionName,
+        "claude", "--agent=mimir-curator", "--prompt", statsText,
+      ], { stdio: "ignore" });
       console.log(`[mimir] Curator running in tmux session: ${sessionName}`);
       console.log(`[mimir] Attach: tmux attach -t '${sessionName}'`);
       console.log(`[mimir] Kill: tmux kill-session -t '${sessionName}'`);
