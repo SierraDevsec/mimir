@@ -1,6 +1,5 @@
-import { getDb } from "../db.js";
+import { getDb, toVarcharArraySql } from "../db.js";
 import { deleteCommentsByTask } from "./comment.js";
-import { toVarcharArrayLiteral } from "./observation-store.js";
 
 export interface TaskRow {
   id: number;
@@ -26,9 +25,7 @@ export async function createTask(
   tags: string[] | null = null
 ): Promise<number> {
   const db = await getDb();
-  const tagsSql = tags && tags.length > 0
-    ? `${toVarcharArrayLiteral(tags)}::VARCHAR[]`
-    : "NULL";
+  const tagsSql = toVarcharArraySql(tags ?? []);
   const rows = await db.all(
     `INSERT INTO tasks (project_id, title, description, assigned_to, status, tags)
      VALUES (?, ?, ?, ?, ?, ${tagsSql}) RETURNING id`,
@@ -93,11 +90,7 @@ export async function updateTask(
     values.push(fields.assigned_to);
   }
   if (fields.tags !== undefined) {
-    if (fields.tags && fields.tags.length > 0) {
-      updates.push(`tags = ${toVarcharArrayLiteral(fields.tags)}::VARCHAR[]`);
-    } else {
-      updates.push("tags = NULL");
-    }
+    updates.push(`tags = ${toVarcharArraySql(fields.tags ?? [])}`);
   }
 
   if (updates.length === 0) return false;
@@ -105,19 +98,26 @@ export async function updateTask(
   updates.push("updated_at = now()");
   values.push(id);
 
-  await db.run(
-    `UPDATE tasks SET ${updates.join(", ")} WHERE id = ?`,
+  const result = await db.all(
+    `UPDATE tasks SET ${updates.join(", ")} WHERE id = ? RETURNING id`,
     ...values
   );
 
-  return true;
+  return result.length > 0;
 }
 
 export async function deleteTask(id: number): Promise<boolean> {
   const db = await getDb();
-  await deleteCommentsByTask(id);
-  const rows = await db.all(`DELETE FROM tasks WHERE id = ? RETURNING id`, id);
-  return rows.length > 0;
+  await db.exec("BEGIN TRANSACTION");
+  try {
+    await deleteCommentsByTask(id);
+    const rows = await db.all(`DELETE FROM tasks WHERE id = ? RETURNING id`, id);
+    await db.exec("COMMIT");
+    return rows.length > 0;
+  } catch (err) {
+    try { await db.exec("ROLLBACK"); } catch (rollbackErr) { console.error("[mimir] ROLLBACK failed (task):", rollbackErr); }
+    throw err;
+  }
 }
 
 export async function findPendingTaskForAgent(
@@ -127,17 +127,29 @@ export async function findPendingTaskForAgent(
 ): Promise<{ id: number; title: string } | null> {
   const db = await getDb();
   // Match by assigned_to = agentName or agentType, status = pending
-  const rows = await db.all(
-    `SELECT t.id, t.title
-     FROM tasks t
-     JOIN sessions s ON t.project_id = s.project_id
-     WHERE s.id = ?
-       AND t.status = 'pending'
-       AND (t.assigned_to = ? OR t.assigned_to = ?)
-     ORDER BY t.created_at ASC
-     LIMIT 1`,
-    sessionId, agentName, agentType ?? ""
-  );
+  const rows = agentType
+    ? await db.all(
+        `SELECT t.id, t.title
+         FROM tasks t
+         JOIN sessions s ON t.project_id = s.project_id
+         WHERE s.id = ?
+           AND t.status = 'pending'
+           AND (t.assigned_to = ? OR t.assigned_to = ?)
+         ORDER BY t.created_at ASC
+         LIMIT 1`,
+        sessionId, agentName, agentType
+      )
+    : await db.all(
+        `SELECT t.id, t.title
+         FROM tasks t
+         JOIN sessions s ON t.project_id = s.project_id
+         WHERE s.id = ?
+           AND t.status = 'pending'
+           AND t.assigned_to = ?
+         ORDER BY t.created_at ASC
+         LIMIT 1`,
+        sessionId, agentName
+      );
   return rows.length > 0 ? rows[0] as { id: number; title: string } : null;
 }
 

@@ -2,9 +2,13 @@ import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from "vitest
 import { getSiblingMarks, getProjectMarks, getFileBasedMarks } from "../relevantMarks.js";
 import { getTestDb, clearTestData, closeTestDb } from "./setup.js";
 
-vi.mock("../../../db.js", async () => {
+vi.mock("../../../db.js", async (importOriginal) => {
+  const actual = await importOriginal();
   const setup = await import("./setup.js");
-  return { getDb: () => setup.getTestDb() };
+  return {
+    ...actual as object,
+    getDb: () => setup.getTestDb(),
+  };
 });
 
 describe("getSiblingMarks", () => {

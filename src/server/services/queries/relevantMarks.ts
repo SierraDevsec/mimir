@@ -2,9 +2,8 @@
  * Mark injection queries for buildSmartContext().
  * Returns actual mark content (not just counts) for direct injection.
  */
-import { getDb } from "../../db.js";
-import { isEmbeddingEnabled, generateEmbedding } from "../embedding.js";
-import { toVarcharArrayLiteral } from "../observation-store.js";
+import { getDb, toVarcharArrayLiteral } from "../../db.js";
+import { isEmbeddingEnabled, generateEmbedding, toEmbeddingLiteral } from "../embedding.js";
 
 export interface MarkSummary {
   id: number;
@@ -87,6 +86,10 @@ export async function getFileBasedMarks(
   if (files.length === 0) return [];
   const db = await getDb();
 
+  // DuckDB does not support bind parameters for VARCHAR[] literals used with list_has_any().
+  // toVarcharArrayLiteral() builds a safe literal via escapeForVarcharArray() which
+  // strips NUL/control chars and escapes backslashes and single-quotes.
+  // File paths are system-generated (PostToolUse hook), not raw user input.
   const fileListLiteral = toVarcharArrayLiteral(files);
 
   return db.all(
@@ -125,10 +128,10 @@ export async function getRelevantMarksRAG(
     }
 
     const db = await getDb();
-    if (!embedding.every(v => typeof v === "number" && isFinite(v))) {
+    const arrLiteral = toEmbeddingLiteral(embedding);
+    if (!arrLiteral) {
       return getProjectMarks(projectId, sessionId, limit);
     }
-    const arrLiteral = `[${embedding.join(",")}]::FLOAT[1024]`;
 
     const results = await db.all(
       `SELECT o.id, o.type, o.title, a.agent_name

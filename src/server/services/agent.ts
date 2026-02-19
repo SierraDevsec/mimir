@@ -94,10 +94,18 @@ export async function getActiveAgentsCount() {
 
 export async function deleteAgent(id: string): Promise<void> {
   const db = await getDb();
-  await db.run(`DELETE FROM activity_log WHERE agent_id = ?`, id);
-  await db.run(`DELETE FROM context_entries WHERE agent_id = ?`, id);
-  await db.run(`DELETE FROM file_changes WHERE agent_id = ?`, id);
-  await db.run(`DELETE FROM agents WHERE id = ?`, id);
+  await db.exec("BEGIN TRANSACTION");
+  try {
+    await db.run(`DELETE FROM activity_log WHERE agent_id = ?`, id);
+    await db.run(`DELETE FROM context_entries WHERE agent_id = ?`, id);
+    await db.run(`DELETE FROM file_changes WHERE agent_id = ?`, id);
+    await db.run(`UPDATE observations SET agent_id = NULL WHERE agent_id = ?`, id);
+    await db.run(`DELETE FROM agents WHERE id = ?`, id);
+    await db.exec("COMMIT");
+  } catch (err) {
+    try { await db.exec("ROLLBACK"); } catch (rollbackErr) { console.error("[mimir] ROLLBACK failed (agent):", rollbackErr); }
+    throw err;
+  }
 }
 
 export async function getAgentsByProject(projectId: string): Promise<AgentRow[]> {

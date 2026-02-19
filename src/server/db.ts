@@ -56,6 +56,38 @@ async function initDb(): Promise<Database> {
   return db;
 }
 
+/**
+ * Run a schema migration, tracking it in _migrations.
+ * @param idempotent — when true (default), errors from fn() are swallowed and the
+ *   migration is recorded as applied (safe for ADD COLUMN on pre-tracking DBs).
+ *   When false, errors are re-thrown and the migration is NOT recorded — use for
+ *   non-idempotent migrations (data transforms, etc.) that must succeed to proceed.
+ */
+async function runMigration(
+  db: Database,
+  version: number,
+  name: string,
+  fn: () => Promise<void>,
+  idempotent: boolean = true
+): Promise<void> {
+  const existing = await db.all(
+    `SELECT version FROM _migrations WHERE version = ?`,
+    version
+  );
+  if (existing.length > 0) return; // Already applied
+  try {
+    await fn();
+  } catch (err) {
+    if (!idempotent) throw err;
+    // Idempotent: migration may have been applied before tracking was added.
+    console.warn(`[mimir] Migration ${version} (${name}) threw (recording as applied):`, err);
+  }
+  await db.run(
+    `INSERT INTO _migrations (version, name) VALUES (?, ?)`,
+    version, name
+  );
+}
+
 async function initSchema(db: Database): Promise<void> {
   await db.exec(`
     CREATE SEQUENCE IF NOT EXISTS context_entries_seq START 1;
@@ -70,9 +102,9 @@ async function initSchema(db: Database): Promise<void> {
     CREATE SEQUENCE IF NOT EXISTS flows_seq START 1;
   `);
 
-  // Migration version tracking table — currently unpopulated.
-  // Existing ALTER TABLE migrations use try/catch for idempotency (backward compat).
-  // New schema changes should INSERT a row here after applying.
+  // Migration version tracking table.
+  // All migrations run through runMigration() which records applied versions here.
+  // On existing DBs, migrations that already ran will fail silently and still get recorded.
   await db.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
       version    INTEGER PRIMARY KEY,
@@ -250,54 +282,30 @@ async function initSchema(db: Database): Promise<void> {
     );
   `);
 
-  // Migration: add tags column to existing tasks tables (idempotent)
-  try {
-    await db.exec(`ALTER TABLE tasks ADD COLUMN tags VARCHAR[]`);
-  } catch {
-    // Column already exists — ignore
-  }
+  // Schema migrations — tracked in _migrations (version = applied once, skipped thereafter)
+  await runMigration(db, 1, "tasks_add_tags",
+    () => db.exec(`ALTER TABLE tasks ADD COLUMN tags VARCHAR[]`));
 
-  // Migration: add token columns to agents table
-  try {
-    await db.exec(`ALTER TABLE agents ADD COLUMN input_tokens INTEGER DEFAULT 0`);
-  } catch {
-    // Column already exists — ignore
-  }
-  try {
-    await db.exec(`ALTER TABLE agents ADD COLUMN output_tokens INTEGER DEFAULT 0`);
-  } catch {
-    // Column already exists — ignore
-  }
+  await runMigration(db, 2, "agents_add_input_tokens",
+    () => db.exec(`ALTER TABLE agents ADD COLUMN input_tokens INTEGER DEFAULT 0`));
 
-  // Migration: add agents_json column to tmux_sessions table
-  try {
-    await db.exec(`ALTER TABLE tmux_sessions ADD COLUMN agents_json VARCHAR`);
-  } catch {
-    // Column already exists — ignore
-  }
+  await runMigration(db, 3, "agents_add_output_tokens",
+    () => db.exec(`ALTER TABLE agents ADD COLUMN output_tokens INTEGER DEFAULT 0`));
 
-  // Migration: add source column to observations table
-  try {
-    await db.exec(`ALTER TABLE observations ADD COLUMN source VARCHAR DEFAULT 'self-mark'`);
-  } catch {
-    // Column already exists — ignore
-  }
+  await runMigration(db, 4, "tmux_sessions_add_agents_json",
+    () => db.exec(`ALTER TABLE tmux_sessions ADD COLUMN agents_json VARCHAR`));
 
-  // Migration: add promoted_to column to observations table (warm→cold promotion tracking)
-  try {
-    await db.exec(`ALTER TABLE observations ADD COLUMN promoted_to VARCHAR DEFAULT NULL`);
-  } catch {
-    // Column already exists — ignore
-  }
+  await runMigration(db, 5, "observations_add_source",
+    () => db.exec(`ALTER TABLE observations ADD COLUMN source VARCHAR DEFAULT 'self-mark'`));
 
-  // Migration: add status column to observations (active/resolved lifecycle)
-  try {
-    await db.exec(`ALTER TABLE observations ADD COLUMN status VARCHAR DEFAULT 'active'`);
-  } catch {
-    // Column already exists — ignore
-  }
+  await runMigration(db, 6, "observations_add_promoted_to",
+    () => db.exec(`ALTER TABLE observations ADD COLUMN promoted_to VARCHAR DEFAULT NULL`));
 
-  // Migration: vss extension + embedding column for RAG
+  await runMigration(db, 7, "observations_add_status",
+    () => db.exec(`ALTER TABLE observations ADD COLUMN status VARCHAR DEFAULT 'active'`));
+
+  // VSS extension — attempt on every startup (not tracked: not a schema change,
+  // should retry if the extension was unavailable at last startup)
   try {
     await db.exec(`INSTALL vss; LOAD vss;`);
     await db.exec(`SET hnsw_enable_experimental_persistence = true`);
@@ -305,28 +313,17 @@ async function initSchema(db: Database): Promise<void> {
     // vss already loaded or unavailable — RAG will use sequential scan
   }
 
-  try {
-    await db.exec(`ALTER TABLE observations ADD COLUMN embedding FLOAT[1024]`);
-  } catch {
-    // Column already exists — ignore
-  }
+  await runMigration(db, 8, "observations_add_embedding",
+    () => db.exec(`ALTER TABLE observations ADD COLUMN embedding FLOAT[1024]`));
 
-  // Migration: add flow columns to tasks table
-  try {
-    await db.exec(`ALTER TABLE tasks ADD COLUMN flow_id INTEGER`);
-  } catch {
-    // Column already exists — ignore
-  }
-  try {
-    await db.exec(`ALTER TABLE tasks ADD COLUMN flow_node_id VARCHAR`);
-  } catch {
-    // Column already exists — ignore
-  }
-  try {
-    await db.exec(`ALTER TABLE tasks ADD COLUMN depends_on INTEGER[]`);
-  } catch {
-    // Column already exists — ignore
-  }
+  await runMigration(db, 9, "tasks_add_flow_id",
+    () => db.exec(`ALTER TABLE tasks ADD COLUMN flow_id INTEGER`));
+
+  await runMigration(db, 10, "tasks_add_flow_node_id",
+    () => db.exec(`ALTER TABLE tasks ADD COLUMN flow_node_id VARCHAR`));
+
+  await runMigration(db, 11, "tasks_add_depends_on",
+    () => db.exec(`ALTER TABLE tasks ADD COLUMN depends_on INTEGER[]`));
 
 }
 
@@ -360,4 +357,35 @@ export async function closeDb(): Promise<void> {
  */
 export function extractCount(result: { count?: number | bigint }[]): number {
   return Number(result[0]?.count ?? 0);
+}
+
+// ---------------------------------------------------------------------------
+// DuckDB VARCHAR[] utilities
+// DuckDB does not support bind parameters for array literals — these helpers
+// build safe SQL fragments with proper escaping.
+// ---------------------------------------------------------------------------
+
+/** Escape a string for DuckDB VARCHAR[] literal: NUL, control chars, backslashes, quotes */
+function escapeForVarcharArray(s: string): string {
+  const cleaned = s
+    .replace(/\0/g, '')               // NUL 바이트 제거
+    .replace(/[\x01-\x1f\x7f]/g, ''); // 제어문자 제거
+  if (cleaned.length !== s.length) {
+    console.debug(`[db] escapeForVarcharArray: stripped ${s.length - cleaned.length} control char(s)`);
+  }
+  return cleaned
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "''");
+}
+
+/** Build a DuckDB VARCHAR[] literal from a string array, or null if empty */
+export function toVarcharArrayLiteral(arr: string[]): string | null {
+  if (arr.length === 0) return null;
+  return `[${arr.map(s => `'${escapeForVarcharArray(s)}'`).join(",")}]`;
+}
+
+/** Build a SQL fragment for a VARCHAR[] column: `['a','b']::VARCHAR[]` or `NULL` */
+export function toVarcharArraySql(arr: string[]): string {
+  const literal = toVarcharArrayLiteral(arr);
+  return literal ? `${literal}::VARCHAR[]` : "NULL";
 }

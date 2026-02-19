@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 import { Database } from "duckdb-async";
 import { getTestDb, closeTestDb, truncateAllTables, fixtures } from "../../../__tests__/setup.js";
 
-vi.mock("../../db.js", async () => {
+vi.mock("../../db.js", async (importOriginal) => {
+  const actual = await importOriginal();
   const setup = await import("../../../__tests__/setup.js");
   return {
+    ...actual as object,
     getDb: () => setup.getTestDb(),
     extractCount: setup.extractCount,
   };

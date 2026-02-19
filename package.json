@@ -1,6 +1,6 @@
 {
   "name": "mimir",
-  "version": "0.1.6",
+  "version": "0.1.10",
   "description": "Claude Code swarm intelligence plugin — shared memory for multi-agent coordination via hooks + DuckDB",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",

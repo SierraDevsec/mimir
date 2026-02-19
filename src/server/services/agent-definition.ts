@@ -13,6 +13,14 @@ export interface AgentDefinition {
   body: string;
 }
 
+const SAFE_AGENT_NAME = /^[a-zA-Z0-9_-]+$/;
+
+function validateAgentName(name: string): void {
+  if (!SAFE_AGENT_NAME.test(name)) {
+    throw new Error(`Invalid agent name: must match /^[a-zA-Z0-9_-]+$/`);
+  }
+}
+
 /**
  * Get the project path from DB by project ID.
  */
@@ -25,6 +33,11 @@ async function getProjectPath(projectId: string): Promise<string | null> {
 /**
  * Parse frontmatter from a .md file content.
  * Returns { frontmatter, body }.
+ *
+ * Intentional limitations (sufficient for current agent definition format):
+ * - Supports string values and indented list values only
+ * - Does NOT support inline lists ([a, b, c]), multiline strings, or nested structures
+ * If the agent definition format ever needs those, replace with the `yaml` package.
  */
 function parseFrontmatter(content: string): { attrs: Record<string, string | string[]>; body: string } {
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -90,11 +103,11 @@ function serializeAgent(def: AgentDefinition): string {
   }
 
   if (def.model && def.model !== "sonnet") {
-    lines.push(`model: ${def.model}`);
+    lines.push(`model: ${JSON.stringify(def.model)}`);
   }
 
   if (def.memory && def.memory !== "none") {
-    lines.push(`memory: ${def.memory}`);
+    lines.push(`memory: ${JSON.stringify(def.memory)}`);
   }
 
   if (def.skills.length > 0) {
@@ -105,7 +118,7 @@ function serializeAgent(def: AgentDefinition): string {
   }
 
   if (def.permissionMode && def.permissionMode !== "default") {
-    lines.push(`permissionMode: ${def.permissionMode}`);
+    lines.push(`permissionMode: ${JSON.stringify(def.permissionMode)}`);
   }
 
   lines.push("---");
@@ -161,7 +174,9 @@ export async function listAgentDefinitions(projectId: string): Promise<AgentDefi
   const agentsDir = path.join(projectPath, ".claude", "agents");
   if (!fs.existsSync(agentsDir)) return [];
 
-  const files = fs.readdirSync(agentsDir).filter(f => f.endsWith(".md"));
+  const files = fs.readdirSync(agentsDir)
+    .filter(f => f.endsWith(".md"))
+    .filter(f => SAFE_AGENT_NAME.test(path.basename(f, ".md")));
   return files.map(f => parseAgentFile(path.join(agentsDir, f)));
 }
 
@@ -169,6 +184,7 @@ export async function listAgentDefinitions(projectId: string): Promise<AgentDefi
  * Get a single agent definition by name.
  */
 export async function getAgentDefinition(projectId: string, name: string): Promise<AgentDefinition | null> {
+  validateAgentName(name);
   const projectPath = await getProjectPath(projectId);
   if (!projectPath) return null;
 
@@ -182,6 +198,7 @@ export async function getAgentDefinition(projectId: string, name: string): Promi
  * Create a new agent definition file.
  */
 export async function createAgentDefinition(projectId: string, def: AgentDefinition): Promise<void> {
+  validateAgentName(def.name);
   const projectPath = await getProjectPath(projectId);
   if (!projectPath) throw new Error("Project not found");
 
@@ -208,6 +225,7 @@ export async function createAgentDefinition(projectId: string, def: AgentDefinit
  * Update an existing agent definition.
  */
 export async function updateAgentDefinition(projectId: string, name: string, partial: Partial<AgentDefinition>): Promise<void> {
+  validateAgentName(name);
   const projectPath = await getProjectPath(projectId);
   if (!projectPath) throw new Error("Project not found");
 
@@ -231,6 +249,7 @@ export async function updateAgentDefinition(projectId: string, name: string, par
  * Agent memory directory is preserved.
  */
 export async function deleteAgentDefinition(projectId: string, name: string): Promise<void> {
+  validateAgentName(name);
   const projectPath = await getProjectPath(projectId);
   if (!projectPath) throw new Error("Project not found");
 

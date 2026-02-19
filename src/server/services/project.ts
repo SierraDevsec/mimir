@@ -45,7 +45,7 @@ export async function deleteProject(id: string): Promise<boolean> {
     await db.run(`DELETE FROM projects WHERE id = ?`, [id]);
     await db.exec("COMMIT");
   } catch (err) {
-    await db.exec("ROLLBACK");
+    try { await db.exec("ROLLBACK"); } catch (rollbackErr) { console.error("[mimir] ROLLBACK failed (project):", rollbackErr); }
     throw err;
   }
 

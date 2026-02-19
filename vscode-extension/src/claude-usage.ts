@@ -93,21 +93,32 @@ async function refreshIfNeeded(tokens: OAuthTokens): Promise<OAuthTokens> {
     return tokens;
   }
 
-  const resp = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      grant_type: "refresh_token",
-      refresh_token: tokens.refreshToken,
-      client_id: CLIENT_ID,
-      scope: "user:profile user:inference user:sessions:claude_code user:mcp_servers",
-    }),
-    signal: AbortSignal.timeout(10000),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        refresh_token: tokens.refreshToken,
+        client_id: CLIENT_ID,
+        scope: "user:profile user:inference user:sessions:claude_code user:mcp_servers",
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (err) {
+    // Network error — clear cache so next attempt re-reads fresh tokens from keychain
+    cachedTokens = null;
+    throw err;
+  }
 
-  if (!resp.ok) throw new Error(`Token refresh failed: ${resp.status}`);
+  if (!resp.ok) {
+    // Auth failure — clear cache so next attempt re-reads fresh tokens from keychain
+    cachedTokens = null;
+    throw new Error(`Token refresh failed: ${resp.status}`);
+  }
 
-  const data = await resp.json();
+  const data = (await resp.json()) as { access_token: string; refresh_token?: string; expires_in: number };
   const refreshed: OAuthTokens = {
     accessToken: data.access_token,
     refreshToken: data.refresh_token || tokens.refreshToken,
@@ -144,7 +155,7 @@ export async function fetchClaudeUsage(): Promise<ClaudeUsage | null> {
     throw new Error(`Usage API ${resp.status}`);
   }
 
-  const raw = await resp.json();
+  const raw = (await resp.json()) as Record<string, any>;
   const result: ClaudeUsage = {};
 
   if (raw.five_hour?.utilization != null) {

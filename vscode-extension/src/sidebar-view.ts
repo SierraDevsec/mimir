@@ -377,13 +377,14 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
         const list = document.getElementById('agents-list');
         const container = document.getElementById('agents-container');
+        function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
         if (msg.agents && msg.agents.length > 0) {
           list.style.display = 'block';
           container.innerHTML = msg.agents.map(a =>
             '<div class="agent-item">' +
               '<div class="agent-dot"></div>' +
-              '<span class="agent-name">' + a.agent_name + '</span>' +
-              '<span class="agent-type">' + (a.agent_type || '') + '</span>' +
+              '<span class="agent-name">' + esc(a.agent_name) + '</span>' +
+              '<span class="agent-type">' + esc(a.agent_type || '') + '</span>' +
             '</div>'
           ).join('');
         } else {
@@ -391,7 +392,9 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         }
       } else if (msg.type === 'claudeUsage') {
         const usageSection = document.getElementById('claude-usage');
-        if (msg.usage) {
+        if (!msg.usage) {
+          usageSection.style.display = 'none';
+        } else {
           usageSection.style.display = 'block';
           if (msg.usage.fiveHour != null) updateUsageBar('5h', msg.usage.fiveHour);
           if (msg.usage.sevenDay != null) updateUsageBar('7d', msg.usage.sevenDay);

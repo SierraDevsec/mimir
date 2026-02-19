@@ -49,6 +49,10 @@ app.get(
   async (c, next) => {
     if (API_TOKEN) {
       const auth = c.req.header("Authorization");
+      // WebSocket clients cannot set custom headers during the HTTP upgrade handshake,
+      // so the token is accepted via query parameter as a well-established fallback.
+      // Risk is low: this daemon is local-only; query params appear in server logs but
+      // not in third-party logs or browser history for programmatic clients.
       const queryToken = c.req.query("token");
       if ((!auth || auth !== `Bearer ${API_TOKEN}`) && queryToken !== API_TOKEN) {
         return c.json({ error: "Unauthorized" }, 401);
@@ -140,6 +144,12 @@ async function main() {
     }).catch(err => console.error("[mimir] Embedding backfill failed:", err));
   }
 
+  // Start periodic embedding backfill timer (only when embedding is enabled)
+  if (isEmbeddingEnabled()) {
+    const { startBackfill } = await import("./services/observation-store.js");
+    startBackfill();
+  }
+
   const server = serve({ fetch: app.fetch, port: PORT }, (info) => {
     console.log(`[mimir] server running on http://localhost:${info.port}`);
   });
@@ -193,8 +203,8 @@ async function main() {
     clearInterval(staleCleanupTimer);
     const { pingInterval } = await import("./routes/ws.js");
     clearInterval(pingInterval);
-    const { backfillInterval } = await import("./services/observation-store.js");
-    clearInterval(backfillInterval);
+    const { stopBackfill } = await import("./services/observation-store.js");
+    stopBackfill();
     if (process.env.SLACK_BOT_TOKEN) {
       const { stopSlackBridge } = await import("./services/slack.js");
       stopSlackBridge();
@@ -214,6 +224,8 @@ async function main() {
     await checkpoint().catch(() => {});
     process.exit(1);
   });
+  // unhandledRejection: log + checkpoint but let Node.js v22 handle process exit
+  // (Node.js v22 terminates on unhandled rejections by default — no explicit exit needed)
   process.on("unhandledRejection", async (reason) => {
     console.error("[mimir] unhandledRejection:", reason);
     const { checkpoint } = await import("./db.js");

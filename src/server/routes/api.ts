@@ -26,10 +26,17 @@ import { createFlow, getFlow, getFlowsByProject, updateFlow, deleteFlow } from "
 
 const api = new Hono();
 
-/** Parse integer URL param; returns null if NaN (triggers 400) */
+/** Parse integer URL param; returns null if NaN or non-positive (triggers 400) */
 function parseId(param: string): number | null {
   const n = parseInt(param, 10);
-  return isNaN(n) ? null : n;
+  return isNaN(n) || n < 1 ? null : n;
+}
+
+/** Clamp an integer query param to [min, max]; returns fallback if NaN or non-finite */
+function clampInt(val: string | undefined, fallback: number, min: number, max: number): number {
+  const n = parseInt(val ?? String(fallback), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
 }
 
 // --- Input validation schemas ---
@@ -146,23 +153,23 @@ const SwarmStartSchema = z.object({
 
 const AgentDefCreateSchema = z.object({
   project_id: z.string().min(1),
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(100).regex(/^[a-zA-Z0-9_-]+$/, "Agent name must contain only letters, numbers, dashes, or underscores"),
   description: z.string().max(2000).optional(),
   model: z.string().max(100).optional(),
-  tools: z.array(z.string().max(100)).max(50).optional(),
-  skills: z.array(z.string().max(100)).max(50).optional(),
+  tools: z.array(z.string().max(100).regex(/^[\w:.-]+$/, "Tool name must contain only word chars, colons, dots, or dashes")).max(50).optional(),
+  skills: z.array(z.string().max(100).regex(/^[\w:.-]+$/, "Skill name must contain only word chars, colons, dots, or dashes")).max(50).optional(),
   memory: z.string().max(100).optional(),
   permissionMode: z.string().max(50).optional(),
   body: z.string().max(50000).optional(),
 });
 
+// Note: `name` intentionally excluded — name is immutable, taken from URL param
 const AgentDefUpdateSchema = z.object({
   project_id: z.string().min(1),
-  name: z.string().min(1).max(100).optional(),
   description: z.string().max(2000).optional(),
   model: z.string().max(100).optional(),
-  tools: z.array(z.string().max(100)).max(50).optional(),
-  skills: z.array(z.string().max(100)).max(50).optional(),
+  tools: z.array(z.string().max(100).regex(/^[\w:.-]+$/, "Tool name must contain only word chars, colons, dots, or dashes")).max(50).optional(),
+  skills: z.array(z.string().max(100).regex(/^[\w:.-]+$/, "Skill name must contain only word chars, colons, dots, or dashes")).max(50).optional(),
   memory: z.string().max(100).optional(),
   permissionMode: z.string().max(50).optional(),
   body: z.string().max(50000).optional(),
@@ -351,7 +358,7 @@ api.post("/tasks/:id/comments", async (c) => {
 });
 
 api.get("/activities", async (c) => {
-  const limit = parseInt(c.req.query("limit") ?? "50", 10);
+  const limit = clampInt(c.req.query("limit"), 50, 1, 500);
   const projectId = c.req.query("project_id");
   if (!projectId) return c.json({ error: "project_id required" }, 400);
   return c.json(await getActivitiesByProject(projectId, limit));
@@ -389,7 +396,7 @@ api.get("/stats", async (c) => {
 
 // Usage analytics endpoints
 api.get("/usage/daily", async (c) => {
-  const days = parseInt(c.req.query("days") ?? "7", 10);
+  const days = clampInt(c.req.query("days"), 7, 1, 365);
   return c.json(await getDailyActivity(days));
 });
 
@@ -433,7 +440,7 @@ api.get("/messages", async (c) => {
   const projectId = c.req.query("project_id");
   if (!projectId) return c.json({ error: "project_id required" }, 400);
   const status = c.req.query("status");
-  const limit = parseInt(c.req.query("limit") ?? "50", 10);
+  const limit = clampInt(c.req.query("limit"), 50, 1, 500);
   const since = c.req.query("since");
   return c.json(await getMessagesByProject(projectId, status ?? undefined, limit, since ?? undefined));
 });
@@ -677,9 +684,9 @@ api.get("/observations", async (c) => {
   const query = c.req.query("query");
   const type = c.req.query("type");
   const agent = c.req.query("agent");
-  const limit = parseInt(c.req.query("limit") ?? "20", 10);
-  const offset = parseInt(c.req.query("offset") ?? "0", 10);
-  const days = parseInt(c.req.query("days") ?? "90", 10);
+  const limit = clampInt(c.req.query("limit"), 20, 1, 500);
+  const offset = clampInt(c.req.query("offset"), 0, 0, 100000);
+  const days = clampInt(c.req.query("days"), 90, 1, 365);
 
   if (query || type || agent) {
     return c.json(await searchObservations(projectId, query ?? "", type ?? undefined, agent ?? undefined, limit, days));
@@ -691,8 +698,8 @@ api.get("/observations/promotion-candidates", async (c) => {
   const projectId = c.req.query("project_id");
   if (!projectId) return c.json({ error: "project_id required" }, 400);
 
-  const minCount = parseInt(c.req.query("min_count") ?? "3", 10);
-  const minSessions = parseInt(c.req.query("min_sessions") ?? "2", 10);
+  const minCount = clampInt(c.req.query("min_count"), 3, 1, 100);
+  const minSessions = clampInt(c.req.query("min_sessions"), 2, 1, 100);
 
   return c.json(await getPromotionCandidates(projectId, minCount, minSessions));
 });
@@ -709,15 +716,15 @@ api.post("/observations/promote", async (c) => {
 api.get("/observations/details", async (c) => {
   const idsParam = c.req.query("ids");
   if (!idsParam) return c.json({ error: "ids required (comma-separated)" }, 400);
-  const ids = idsParam.split(",").map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+  const ids = idsParam.split(",").map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id) && id > 0).slice(0, 500);
   return c.json(await getObservationDetails(ids));
 });
 
 api.get("/observations/:id/timeline", async (c) => {
   const id = parseId(c.req.param("id"));
   if (id === null) return c.json({ error: "invalid id" }, 400);
-  const before = parseInt(c.req.query("before") ?? "3", 10);
-  const after = parseInt(c.req.query("after") ?? "3", 10);
+  const before = clampInt(c.req.query("before"), 3, 1, 20);
+  const after = clampInt(c.req.query("after"), 3, 1, 20);
   return c.json(await getObservationTimeline(id, before, after));
 });
 

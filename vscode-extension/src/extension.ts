@@ -73,7 +73,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const account = await getClaudeAccountInfo();
         postToPanel({ type: "usageUpdate", account, usage });
       }
-    } catch { /* silent */ }
+    } catch {
+      // Notify sidebar that usage is unavailable (clears stale data)
+      sidebarProvider.postClaudeUsage(null);
+    }
   }
 
   refreshClaudeUsageData();

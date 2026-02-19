@@ -1,4 +1,4 @@
-import { getDb, extractCount } from "../db.js";
+import { getDb, extractCount, toVarcharArraySql } from "../db.js";
 
 export async function addContextEntry(
   sessionId: string,
@@ -8,12 +8,13 @@ export async function addContextEntry(
   tags: string[] | null
 ): Promise<void> {
   const db = await getDb();
-  const tagsLiteral = tags && tags.length > 0
-    ? `[${tags.map(t => `'${t.replace(/'/g, "''")}'`).join(",")}]`
-    : null;
+  // DuckDB does not support bind parameters for VARCHAR[] literals.
+  // toVarcharArraySql() produces a safe literal via escapeForVarcharArray()
+  // (strips NUL/control chars, escapes backslashes and single-quotes).
+  const tagsSql = tags && tags.length > 0 ? toVarcharArraySql(tags) : "NULL";
   await db.run(
     `INSERT INTO context_entries (session_id, agent_id, entry_type, content, tags)
-     VALUES (?, ?, ?, ?, ${tagsLiteral ? `${tagsLiteral}::VARCHAR[]` : "NULL"})`,
+     VALUES (?, ?, ?, ?, ${tagsSql})`,
     sessionId, agentId, entryType, content
   );
 }
@@ -64,17 +65,15 @@ export async function getCrossSessionContext(sessionId: string, limit: number = 
   );
 }
 
+/** Delete context entries by type. Returns count of deleted rows.
+ *  Uses DELETE ... RETURNING for atomicity (single query instead of COUNT + DELETE). */
 export async function deleteContextByType(sessionId: string, entryType: string): Promise<number> {
   const db = await getDb();
   const result = await db.all(
-    `SELECT COUNT(*) as count FROM context_entries WHERE session_id = ? AND entry_type = ?`,
+    `DELETE FROM context_entries WHERE session_id = ? AND entry_type = ? RETURNING id`,
     sessionId, entryType
   );
-  await db.run(
-    `DELETE FROM context_entries WHERE session_id = ? AND entry_type = ?`,
-    sessionId, entryType
-  );
-  return extractCount(result);
+  return result.length;
 }
 
 export async function getTotalContextEntriesCount() {

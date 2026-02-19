@@ -75,14 +75,25 @@ export function buildEmbeddingText(title: string, narrative?: string | null, con
   return parts.join(" ").slice(0, 2000); // bge-m3 handles up to 8192 tokens, but keep it reasonable
 }
 
+/**
+ * Convert a number[] embedding to a DuckDB FLOAT array literal.
+ * Returns null if any value is non-finite (invalid embedding).
+ * Centralizes the validation + literal generation used in multiple places.
+ */
+export function toEmbeddingLiteral(embedding: number[]): string | null {
+  if (!embedding.every(v => typeof v === "number" && Number.isFinite(v))) return null;
+  return `[${embedding.join(",")}]::FLOAT[${EMBEDDING_DIM}]`;
+}
+
 export async function updateObservationEmbedding(id: number, embedding: number[]): Promise<void> {
   if (embedding.length !== EMBEDDING_DIM || !embedding.every(v => Number.isFinite(v))) {
     throw new Error(`Invalid embedding: expected ${EMBEDDING_DIM} finite numbers, got ${embedding.length}`);
   }
   const db = await getDb();
-  const arrLiteral = `[${embedding.join(",")}]`;
+  // Safe: already validated above
+  const arrLiteral = toEmbeddingLiteral(embedding)!;
   await db.run(
-    `UPDATE observations SET embedding = ${arrLiteral}::FLOAT[${EMBEDDING_DIM}] WHERE id = ?`,
+    `UPDATE observations SET embedding = ${arrLiteral} WHERE id = ?`,
     id
   );
 }
@@ -117,13 +128,15 @@ export async function backfillEmbeddings(): Promise<number> {
     const texts = batch.map((r) => buildEmbeddingText(r.title, r.narrative, r.concepts));
     const embeddings = await generateEmbeddings(texts);
 
-    for (let j = 0; j < batch.length; j++) {
-      const emb = embeddings[j];
-      if (emb) {
-        await updateObservationEmbedding(batch[j].id, emb);
-        count++;
-      }
-    }
+    const updated = await Promise.all(
+      batch.map(async (row, j) => {
+        const emb = embeddings[j];
+        if (!emb) return 0;
+        await updateObservationEmbedding(row.id, emb);
+        return 1;
+      })
+    );
+    count += updated.reduce<number>((a, b) => a + b, 0);
   }
 
   if (count > 0) await checkpoint();
