@@ -8,11 +8,19 @@ const MIMIR_URL = `http://localhost:${MIMIR_PORT}`;
 const DEFAULT_PROJECT_ID = process.env.MIMIR_PROJECT_ID ?? "";
 const DEFAULT_AGENT_NAME = process.env.MIMIR_AGENT_NAME ?? "";
 const TMUX_PANE = process.env.TMUX_PANE ?? null;
+const API_TOKEN = process.env.MIMIR_API_TOKEN ?? "";
+
+function buildHeaders(withBody: boolean): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (withBody) headers["Content-Type"] = "application/json";
+  if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`;
+  return headers;
+}
 
 async function apiCall(method: string, path: string, body?: unknown): Promise<unknown> {
   const res = await fetch(`${MIMIR_URL}${path}`, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: buildHeaders(!!body),
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {

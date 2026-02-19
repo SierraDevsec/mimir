@@ -90,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
 
   // Status bar
-  const statusBar = new StatusBar(api);
+  const statusBar = new StatusBar(api, getProjectId);
   statusBar.startPolling(pollingInterval);
   context.subscriptions.push({ dispose: () => statusBar.dispose() });
 

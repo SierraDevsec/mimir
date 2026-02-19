@@ -1,10 +1,24 @@
 import type { Activity, Agent, ContextEntry, FileChange, Session, Stats, Task, TaskComment } from "./types";
 
 export class ApiClient {
-  constructor(private baseUrl: string) {}
+  private token: string;
+
+  constructor(private baseUrl: string) {
+    this.token = process.env.MIMIR_API_TOKEN ?? "";
+  }
+
+  private authHeaders(extra?: Record<string, string>): Record<string, string> {
+    const headers: Record<string, string> = { ...extra };
+    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+    return headers;
+  }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, init);
+    const merged: RequestInit = {
+      ...init,
+      headers: this.authHeaders(init?.headers as Record<string, string> | undefined),
+    };
+    const res = await fetch(`${this.baseUrl}${path}`, merged);
     if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
     return res.json() as Promise<T>;
   }
@@ -37,22 +51,20 @@ export class ApiClient {
     return this.get<{ status: string; uptime: number }>("/api/health");
   }
 
-  stats(projectId?: string) {
-    return this.get<Stats>(`/api/stats${projectId ? `?project_id=${projectId}` : ""}`);
+  stats(projectId: string) {
+    return this.get<Stats>(`/api/stats?project_id=${projectId}`);
   }
 
-  sessions(active?: boolean) {
-    const params = new URLSearchParams();
+  sessions(projectId: string, active?: boolean) {
+    const params = new URLSearchParams({ project_id: projectId });
     if (active) params.set("active", "true");
-    const qs = params.toString();
-    return this.get<Session[]>(`/api/sessions${qs ? `?${qs}` : ""}`);
+    return this.get<Session[]>(`/api/sessions?${params.toString()}`);
   }
 
-  agents(active?: boolean) {
-    const params = new URLSearchParams();
+  agents(projectId: string, active?: boolean) {
+    const params = new URLSearchParams({ project_id: projectId });
     if (active) params.set("active", "true");
-    const qs = params.toString();
-    return this.get<Agent[]>(`/api/agents${qs ? `?${qs}` : ""}`);
+    return this.get<Agent[]>(`/api/agents?${params.toString()}`);
   }
 
   sessionAgents(sessionId: string) {
@@ -78,8 +90,8 @@ export class ApiClient {
     });
   }
 
-  tasks(projectId?: string) {
-    return this.get<Task[]>(`/api/tasks${projectId ? `?project_id=${projectId}` : ""}`);
+  tasks(projectId: string) {
+    return this.get<Task[]>(`/api/tasks?project_id=${projectId}`);
   }
 
   createTask(data: { title: string; description?: string; status?: string }) {
@@ -102,7 +114,7 @@ export class ApiClient {
     return this.post<{ ok: boolean; id: number }>(`/api/tasks/${taskId}/comments`, data);
   }
 
-  activities(limit = 50) {
-    return this.get<Activity[]>(`/api/activities?limit=${limit}`);
+  activities(projectId: string, limit = 50) {
+    return this.get<Activity[]>(`/api/activities?project_id=${projectId}&limit=${limit}`);
   }
 }
