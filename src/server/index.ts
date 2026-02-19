@@ -46,6 +46,16 @@ if (API_TOKEN) {
 // WebSocket 엔드포인트
 app.get(
   "/ws",
+  async (c, next) => {
+    if (API_TOKEN) {
+      const auth = c.req.header("Authorization");
+      const queryToken = c.req.query("token");
+      if ((!auth || auth !== `Bearer ${API_TOKEN}`) && queryToken !== API_TOKEN) {
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+    }
+    return next();
+  },
   upgradeWebSocket(() => ({
     onOpen(_event, ws) {
       console.log("[ws] client connected");

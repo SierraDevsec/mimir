@@ -15,7 +15,9 @@ export function useWebSocket() {
 
   const connect = useCallback(() => {
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${location.host}/ws`);
+    const token = new URLSearchParams(location.search).get("mimir_token");
+    const wsPath = token ? `/ws?token=${encodeURIComponent(token)}` : "/ws";
+    const ws = new WebSocket(`${protocol}//${location.host}${wsPath}`);
     wsRef.current = ws;
 
     ws.onopen = () => {

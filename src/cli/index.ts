@@ -8,6 +8,13 @@ const program = new Command();
 
 const MIMIR_PORT = parseInt(process.env.MIMIR_PORT ?? "3100", 10);
 const MIMIR_URL = `http://localhost:${MIMIR_PORT}`;
+const MIMIR_API_TOKEN = process.env.MIMIR_API_TOKEN;
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    ...extra,
+    ...(MIMIR_API_TOKEN ? { Authorization: `Bearer ${MIMIR_API_TOKEN}` } : {}),
+  };
+}
 const DATA_DIR = path.resolve(
   import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname),
   "../../data"
@@ -138,15 +145,17 @@ program
       const health = await res.json() as { status: string; uptime: number };
       console.log(`[mimir] Server: ${health.status} (uptime: ${Math.round(health.uptime)}s)`);
 
-      const sessionsRes = await fetch(`${MIMIR_URL}/api/sessions?active=true`);
-      const sessions = await sessionsRes.json() as Array<Record<string, unknown>>;
+      const sessionsRes = await fetch(`${MIMIR_URL}/api/sessions?active=true`, { headers: authHeaders() });
+      const sessionsData = await sessionsRes.json();
+      const sessions = Array.isArray(sessionsData) ? sessionsData as Array<Record<string, unknown>> : [];
       console.log(`[mimir] Active sessions: ${sessions.length}`);
       for (const s of sessions) {
         console.log(`  - ${s.id} (project: ${s.project_id ?? "none"})`);
       }
 
-      const agentsRes = await fetch(`${MIMIR_URL}/api/agents?active=true`);
-      const agents = await agentsRes.json() as Array<Record<string, unknown>>;
+      const agentsRes = await fetch(`${MIMIR_URL}/api/agents?active=true`, { headers: authHeaders() });
+      const agentsData = await agentsRes.json();
+      const agents = Array.isArray(agentsData) ? agentsData as Array<Record<string, unknown>> : [];
       console.log(`[mimir] Active agents: ${agents.length}`);
       for (const a of agents) {
         console.log(`  - ${a.id} [${a.agent_name}] (${a.agent_type ?? "unknown"})`);
@@ -425,7 +434,7 @@ program
         try {
           const res = await fetch(`${portUrl}/hooks/RegisterProject`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({ project_id: projectId, project_name: projectName, project_path: target }),
           });
           if (res.ok) {
@@ -596,7 +605,7 @@ program
         try {
           await fetch(`${MIMIR_URL}/api/messages`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({
               project_id: projectId,
               from_name: "orchestrator",
@@ -624,7 +633,7 @@ program
       try {
         await fetch(`${MIMIR_URL}/api/messages`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             project_id: projectId,
             from_name: "system",
@@ -670,7 +679,7 @@ tmux
     try {
       const res = await fetch(`${MIMIR_URL}/api/tmux/sessions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ project_id: projectId }),
       });
       const result = await res.json() as { ok?: boolean; session_name?: string; error?: string };
@@ -694,7 +703,7 @@ tmux
     try {
       const res = await fetch(`${MIMIR_URL}/api/tmux/panes`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           session_name: sessionName,
           agent_name: agentName,
@@ -721,6 +730,7 @@ tmux
     try {
       const res = await fetch(`${MIMIR_URL}/api/tmux/panes/${encodeURIComponent(paneId)}`, {
         method: "DELETE",
+        headers: authHeaders(),
       });
       const result = await res.json() as { ok?: boolean; error?: string };
       if (result.ok) {
@@ -742,6 +752,7 @@ tmux
     try {
       const res = await fetch(`${MIMIR_URL}/api/tmux/sessions/${encodeURIComponent(sessionName)}`, {
         method: "DELETE",
+        headers: authHeaders(),
       });
       const result = await res.json() as { ok?: boolean; error?: string };
       if (result.ok) {
@@ -767,7 +778,7 @@ tmux
     try {
       if (!opts.panes) {
         const query = opts.project ? `?project_id=${encodeURIComponent(opts.project)}` : "";
-        const res = await fetch(`${MIMIR_URL}/api/tmux/sessions${query}`);
+        const res = await fetch(`${MIMIR_URL}/api/tmux/sessions${query}`, { headers: authHeaders() });
         const sessions = await res.json() as Array<{ session_name: string; project_id: string; status: string; created_at: string }>;
         console.log(`\n[Sessions] (${sessions.length})`);
         for (const s of sessions) {
@@ -777,7 +788,7 @@ tmux
 
       if (!opts.sessions) {
         const query = opts.session ? `?session_name=${encodeURIComponent(opts.session)}` : "";
-        const res = await fetch(`${MIMIR_URL}/api/tmux/panes${query}`);
+        const res = await fetch(`${MIMIR_URL}/api/tmux/panes${query}`, { headers: authHeaders() });
         const panes = await res.json() as Array<{ pane_id: string; session_name: string; agent_name: string | null; status: string }>;
         console.log(`\n[Panes] (${panes.length})`);
         for (const p of panes) {
@@ -834,7 +845,7 @@ program
     // Fetch curation stats
     let statsText = "";
     try {
-      const res = await fetch(`${MIMIR_URL}/api/curation/stats?project_id=${encodeURIComponent(projectId)}`);
+      const res = await fetch(`${MIMIR_URL}/api/curation/stats?project_id=${encodeURIComponent(projectId)}`, { headers: authHeaders() });
       if (res.ok) {
         const stats = await res.json() as {
           last_curated: string | null;
@@ -904,7 +915,7 @@ program
         try {
           await fetch(`${MIMIR_URL}/api/curation/complete`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({ project_id: projectId }),
           });
           console.log("[mimir] Curation recorded in activity log.");

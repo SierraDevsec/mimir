@@ -686,4 +686,12 @@ api.delete("/flows/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+api.onError((err, c) => {
+  if (err instanceof SyntaxError) {
+    return c.json({ error: "Invalid JSON in request body" }, 400);
+  }
+  console.error("[api] Unhandled error:", err);
+  return c.json({ error: "Internal server error" }, 500);
+});
+
 export default api;
