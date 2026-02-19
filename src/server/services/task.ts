@@ -100,8 +100,9 @@ export async function updateTask(
 
 export async function deleteTask(id: number): Promise<boolean> {
   const db = await getDb();
+  const rows = await db.all(`DELETE FROM tasks WHERE id = ? RETURNING id`, id);
+  if (rows.length === 0) return false;
   await deleteCommentsByTask(id);
-  await db.run(`DELETE FROM tasks WHERE id = ?`, id);
   return true;
 }
 

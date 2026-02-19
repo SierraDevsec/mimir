@@ -145,21 +145,33 @@ program
       const health = await res.json() as { status: string; uptime: number };
       console.log(`[mimir] Server: ${health.status} (uptime: ${Math.round(health.uptime)}s)`);
 
-      const sessionsRes = await fetch(`${MIMIR_URL}/api/sessions?active=true`, { headers: authHeaders() });
-      const sessionsData = await sessionsRes.json();
-      const sessions = Array.isArray(sessionsData) ? sessionsData as Array<Record<string, unknown>> : [];
-      console.log(`[mimir] Active sessions: ${sessions.length}`);
-      for (const s of sessions) {
-        console.log(`  - ${s.id} (project: ${s.project_id ?? "none"})`);
-      }
+      const projectsRes = await fetch(`${MIMIR_URL}/api/projects`, { headers: authHeaders() });
+      const projects = await projectsRes.json() as Array<{ id: string; name: string }>;
+      let totalSessions = 0;
+      let totalAgents = 0;
 
-      const agentsRes = await fetch(`${MIMIR_URL}/api/agents?active=true`, { headers: authHeaders() });
-      const agentsData = await agentsRes.json();
-      const agents = Array.isArray(agentsData) ? agentsData as Array<Record<string, unknown>> : [];
-      console.log(`[mimir] Active agents: ${agents.length}`);
-      for (const a of agents) {
-        console.log(`  - ${a.id} [${a.agent_name}] (${a.agent_type ?? "unknown"})`);
+      for (const project of projects) {
+        const pid = encodeURIComponent(project.id);
+        const [sessRes, agentsRes] = await Promise.all([
+          fetch(`${MIMIR_URL}/api/sessions?active=true&project_id=${pid}`, { headers: authHeaders() }),
+          fetch(`${MIMIR_URL}/api/agents?active=true&project_id=${pid}`, { headers: authHeaders() }),
+        ]);
+        const sessions = await sessRes.json() as Array<Record<string, unknown>>;
+        const agents = await agentsRes.json() as Array<Record<string, unknown>>;
+        if (!Array.isArray(sessions) || !Array.isArray(agents)) continue;
+        totalSessions += sessions.length;
+        totalAgents += agents.length;
+        if (sessions.length > 0 || agents.length > 0) {
+          console.log(`\n[mimir] Project: ${project.id}`);
+          for (const s of sessions) {
+            console.log(`  session ${s.id}`);
+          }
+          for (const a of agents) {
+            console.log(`  agent  ${a.agent_name} [${a.agent_type ?? "unknown"}]`);
+          }
+        }
       }
+      console.log(`\n[mimir] Total: ${totalSessions} active session(s), ${totalAgents} active agent(s) across ${projects.length} project(s)`);
     } catch {
       console.log("[mimir] Daemon is not running");
       const pid = readPid();
