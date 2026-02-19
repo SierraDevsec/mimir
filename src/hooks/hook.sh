@@ -20,9 +20,16 @@ fi
 
 EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // "unknown"' 2>/dev/null) || { exit 0; }
 
+# Build auth args if MIMIR_API_TOKEN is set
+AUTH_ARGS=()
+if [ -n "${MIMIR_API_TOKEN:-}" ]; then
+  AUTH_ARGS=(-H "Authorization: Bearer ${MIMIR_API_TOKEN}")
+fi
+
 # POST to daemon with 5s timeout
 RESPONSE=$(echo "$INPUT" | curl -sf --max-time 5 -X POST \
   -H "Content-Type: application/json" \
+  "${AUTH_ARGS[@]}" \
   -d @- \
   "${MIMIR_URL}/hooks/${EVENT}" 2>/dev/null)
 

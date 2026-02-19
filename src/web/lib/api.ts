@@ -1,7 +1,25 @@
 const BASE = "/api";
 
+// Token passed by VSCode extension webview via ?mimir_token=xxx URL param
+// Read once on module init (URL param may not persist on SPA navigation)
+const SESSION_TOKEN: string | null = (() => {
+  try {
+    return new URLSearchParams(window.location.search).get("mimir_token");
+  } catch {
+    return null;
+  }
+})();
+
+function getAuthHeaders(): Record<string, string> {
+  return SESSION_TOKEN ? { Authorization: `Bearer ${SESSION_TOKEN}` } : {};
+}
+
 async function request<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, init);
+  const merged: RequestInit = {
+    ...init,
+    headers: { ...getAuthHeaders(), ...(init?.headers as Record<string, string> | undefined) },
+  };
+  const res = await fetch(input, merged);
   if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
   return res.json() as Promise<T>;
 }

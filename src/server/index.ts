@@ -21,6 +21,28 @@ import { addClient, removeClient, broadcast } from "./routes/ws.js";
 const app = new Hono();
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
+// Optional Bearer token auth — enable by setting MIMIR_API_TOKEN env var
+// Protects against accidental port exposure (SSH tunnels, container port mapping, etc.)
+const API_TOKEN = process.env.MIMIR_API_TOKEN;
+if (API_TOKEN) {
+  app.use("/api/*", async (c, next) => {
+    if (c.req.path === "/api/health") return next(); // health check always allowed
+    const auth = c.req.header("Authorization");
+    if (!auth || auth !== `Bearer ${API_TOKEN}`) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    return next();
+  });
+  app.use("/hooks/*", async (c, next) => {
+    const auth = c.req.header("Authorization");
+    if (!auth || auth !== `Bearer ${API_TOKEN}`) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+    return next();
+  });
+  console.log(`[mimir] API token auth enabled`);
+}
+
 // WebSocket 엔드포인트
 app.get(
   "/ws",

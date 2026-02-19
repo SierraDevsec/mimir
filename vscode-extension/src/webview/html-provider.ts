@@ -1,6 +1,9 @@
 export function getWebviewHtml(port: number, route: string = "/", projectId?: string | null): string {
   const params = new URLSearchParams({ embed: "true" });
   if (projectId) params.set("project", projectId);
+  // Pass API token to Web UI so it can authenticate API calls
+  const token = process.env.MIMIR_API_TOKEN;
+  if (token) params.set("mimir_token", token);
   const separator = route.includes("?") ? "&" : "?";
 
   return `<!DOCTYPE html>

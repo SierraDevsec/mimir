@@ -1,11 +1,11 @@
 import { Hono } from "hono";
-import { getAllSessions, getActiveSessions, getSession, endSession, getTotalSessionsCount, getActiveSessionsCount, getSessionsByProject, getActiveSessionsByProject, getSessionsCountByProject, getActiveSessionsCountByProject } from "../services/session.js";
-import { getAllAgents, getActiveAgents, getAgentsBySession, getAgent, stopAgent, updateAgentSummary, getTotalAgentsCount, getActiveAgentsCount, deleteAgent, getAgentsByProject, getActiveAgentsByProject, getAgentsCountByProject, getActiveAgentsCountByProject } from "../services/agent.js";
-import { getContextBySession, getContextByAgent, getTotalContextEntriesCount, deleteContextByType, getContextEntriesCountByProject } from "../services/context.js";
-import { getFileChangesBySession, getFileChangesByAgent, getTotalFileChangesCount, getFileChangesCountByProject } from "../services/filechange.js";
-import { getAllTasks, getTasksByProject, getTask, createTask, updateTask, deleteTask } from "../services/task.js";
+import { getSession, endSession, getSessionsByProject, getActiveSessionsByProject, getSessionsCountByProject, getActiveSessionsCountByProject } from "../services/session.js";
+import { getAgentsBySession, getAgent, stopAgent, updateAgentSummary, deleteAgent, getAgentsByProject, getActiveAgentsByProject, getAgentsCountByProject, getActiveAgentsCountByProject } from "../services/agent.js";
+import { getContextBySession, getContextByAgent, deleteContextByType, getContextEntriesCountByProject } from "../services/context.js";
+import { getFileChangesBySession, getFileChangesByAgent, getFileChangesCountByProject } from "../services/filechange.js";
+import { getTasksByProject, getTask, createTask, updateTask, deleteTask } from "../services/task.js";
 import { addComment, getCommentsByTask } from "../services/comment.js";
-import { logActivity, getRecentActivities, getActivitiesBySession, getActivitiesByProject } from "../services/activity.js";
+import { logActivity, getActivitiesBySession, getActivitiesByProject } from "../services/activity.js";
 import { getAllProjects, deleteProject } from "../services/project.js";
 import { getDailyActivity, getWeeklyTotals, getAgentContextSizes, getTotalContextSize, getAgentTokenUsage, getTotalTokenUsage } from "../services/usage.js";
 import { sendMessage, getMessagesByProject, getMessage, markAsRead, deleteMessage } from "../services/message.js";
@@ -20,7 +20,7 @@ import { searchObservations, getObservationDetails, getObservationTimeline, getO
 import { getPromotionCandidates } from "../services/queries/promotionCandidates.js";
 import { getCurationStats } from "../services/curation.js";
 import { listSkills } from "../services/skill.js";
-import { createFlow, getFlow, getFlowsByProject, getAllFlows, updateFlow, deleteFlow } from "../services/flow.js";
+import { createFlow, getFlow, getFlowsByProject, updateFlow, deleteFlow } from "../services/flow.js";
 
 const api = new Hono();
 
@@ -38,10 +38,8 @@ api.delete("/projects/:id", async (c) => {
 api.get("/sessions", async (c) => {
   const active = c.req.query("active");
   const projectId = c.req.query("project_id");
-  if (projectId) {
-    return c.json(active === "true" ? await getActiveSessionsByProject(projectId) : await getSessionsByProject(projectId));
-  }
-  return c.json(active === "true" ? await getActiveSessions() : await getAllSessions());
+  if (!projectId) return c.json({ error: "project_id required" }, 400);
+  return c.json(active === "true" ? await getActiveSessionsByProject(projectId) : await getSessionsByProject(projectId));
 });
 
 api.get("/sessions/:id", async (c) => {
@@ -76,10 +74,8 @@ api.patch("/sessions/:id", async (c) => {
 api.get("/agents", async (c) => {
   const active = c.req.query("active");
   const projectId = c.req.query("project_id");
-  if (projectId) {
-    return c.json(active === "true" ? await getActiveAgentsByProject(projectId) : await getAgentsByProject(projectId));
-  }
-  return c.json(active === "true" ? await getActiveAgents() : await getAllAgents());
+  if (!projectId) return c.json({ error: "project_id required" }, 400);
+  return c.json(active === "true" ? await getActiveAgentsByProject(projectId) : await getAgentsByProject(projectId));
 });
 
 api.get("/agents/:id", async (c) => {
@@ -116,7 +112,8 @@ api.delete("/agents/:id", async (c) => {
 
 api.get("/tasks", async (c) => {
   const projectId = c.req.query("project_id");
-  return c.json(projectId ? await getTasksByProject(projectId) : await getAllTasks());
+  if (!projectId) return c.json({ error: "project_id required" }, 400);
+  return c.json(await getTasksByProject(projectId));
 });
 
 api.get("/tasks/:id", async (c) => {
@@ -190,38 +187,13 @@ api.post("/tasks/:id/comments", async (c) => {
 api.get("/activities", async (c) => {
   const limit = parseInt(c.req.query("limit") ?? "50", 10);
   const projectId = c.req.query("project_id");
-  return c.json(projectId ? await getActivitiesByProject(projectId, limit) : await getRecentActivities(limit));
+  if (!projectId) return c.json({ error: "project_id required" }, 400);
+  return c.json(await getActivitiesByProject(projectId, limit));
 });
 
 api.get("/stats", async (c) => {
   const projectId = c.req.query("project_id");
-
-  if (projectId) {
-    const [
-      total_sessions,
-      active_sessions,
-      total_agents,
-      active_agents,
-      total_context_entries,
-      total_file_changes
-    ] = await Promise.all([
-      getSessionsCountByProject(projectId),
-      getActiveSessionsCountByProject(projectId),
-      getAgentsCountByProject(projectId),
-      getActiveAgentsCountByProject(projectId),
-      getContextEntriesCountByProject(projectId),
-      getFileChangesCountByProject(projectId)
-    ]);
-
-    return c.json({
-      total_sessions,
-      active_sessions,
-      total_agents,
-      active_agents,
-      total_context_entries,
-      total_file_changes
-    });
-  }
+  if (!projectId) return c.json({ error: "project_id required" }, 400);
 
   const [
     total_sessions,
@@ -231,12 +203,12 @@ api.get("/stats", async (c) => {
     total_context_entries,
     total_file_changes
   ] = await Promise.all([
-    getTotalSessionsCount(),
-    getActiveSessionsCount(),
-    getTotalAgentsCount(),
-    getActiveAgentsCount(),
-    getTotalContextEntriesCount(),
-    getTotalFileChangesCount()
+    getSessionsCountByProject(projectId),
+    getActiveSessionsCountByProject(projectId),
+    getAgentsCountByProject(projectId),
+    getActiveAgentsCountByProject(projectId),
+    getContextEntriesCountByProject(projectId),
+    getFileChangesCountByProject(projectId)
   ]);
 
   return c.json({
@@ -668,7 +640,8 @@ api.post("/curation/complete", async (c) => {
 // Flows
 api.get("/flows", async (c) => {
   const projectId = c.req.query("project_id");
-  return c.json(projectId ? await getFlowsByProject(projectId) : await getAllFlows());
+  if (!projectId) return c.json({ error: "project_id required" }, 400);
+  return c.json(await getFlowsByProject(projectId));
 });
 
 api.get("/flows/:id", async (c) => {
