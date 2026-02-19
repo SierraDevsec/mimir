@@ -28,8 +28,8 @@ export async function deleteProject(id: string): Promise<boolean> {
   // CASCADE delete in dependency order
   await db.run(`DELETE FROM task_comments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`, [id]);
   await db.run(`DELETE FROM tasks WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM context_entries WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM file_changes WHERE project_id = ?`, [id]);
+  await db.run(`DELETE FROM context_entries WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
+  await db.run(`DELETE FROM file_changes WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
   await db.run(`DELETE FROM messages WHERE project_id = ?`, [id]);
   await db.run(`DELETE FROM agent_registry WHERE project_id = ?`, [id]);
   await db.run(`DELETE FROM observations WHERE project_id = ?`, [id]);

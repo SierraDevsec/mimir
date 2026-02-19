@@ -358,7 +358,7 @@ hooks.post("/:event", async (c) => {
             );
             if (existing.length > 0) {
               await db.run(
-                `UPDATE agents SET status='active', updated_at=now() WHERE id=? AND session_id=?`,
+                `UPDATE agents SET status='active' WHERE id=? AND session_id=?`,
                 agentId, sessionId
               );
             } else {
