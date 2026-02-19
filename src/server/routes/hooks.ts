@@ -441,8 +441,10 @@ hooks.post("/:event", async (c) => {
       }
 
       default: {
-        await logActivity(sessionId, null, event, body);
-        broadcast(event, body);
+        // Strip sensitive local file paths before broadcasting to WS clients
+        const { transcript_path: _tp, tool_input: _ti, tool_response: _tr, result: _r, ...safeBody } = body;
+        await logActivity(sessionId, null, event, safeBody);
+        broadcast(event, safeBody);
         return c.json({});
       }
     }

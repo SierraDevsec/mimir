@@ -133,6 +133,46 @@ const TmuxPaneSchema = z.object({
   start_claude: z.boolean().optional(),
 });
 
+const SwarmStartSchema = z.object({
+  project_id: z.string().min(1),
+  agents: z.array(z.object({
+    name: z.string().min(1).max(100),
+    model: z.string().min(1).max(100),
+  })).min(1).max(20),
+  leader_model: z.string().max(100).optional(),
+  initial_task: z.string().max(10000).optional(),
+  skip_permissions: z.boolean().optional(),
+});
+
+const AgentDefCreateSchema = z.object({
+  project_id: z.string().min(1),
+  name: z.string().min(1).max(100),
+  description: z.string().max(2000).optional(),
+  model: z.string().max(100).optional(),
+  tools: z.array(z.string().max(100)).max(50).optional(),
+  skills: z.array(z.string().max(100)).max(50).optional(),
+  memory: z.string().max(100).optional(),
+  permissionMode: z.string().max(50).optional(),
+  body: z.string().max(50000).optional(),
+});
+
+const AgentDefUpdateSchema = z.object({
+  project_id: z.string().min(1),
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(2000).optional(),
+  model: z.string().max(100).optional(),
+  tools: z.array(z.string().max(100)).max(50).optional(),
+  skills: z.array(z.string().max(100)).max(50).optional(),
+  memory: z.string().max(100).optional(),
+  permissionMode: z.string().max(50).optional(),
+  body: z.string().max(50000).optional(),
+});
+
+const CurationCompleteSchema = z.object({
+  project_id: z.string().min(1),
+  details: z.record(z.string(), z.unknown()).optional(),
+});
+
 api.get("/health", async (c) => {
   try {
     const db = await getDb();
@@ -532,15 +572,9 @@ api.delete("/tmux/panes/:id", async (c) => {
 
 // Swarm Management
 api.post("/swarm/start", async (c) => {
-  const body = await c.req.json();
-  const { project_id, agents, leader_model, initial_task, skip_permissions } = body;
-
-  if (!project_id) {
-    return c.json({ error: "project_id required" }, 400);
-  }
-  if (!agents || !Array.isArray(agents) || agents.length === 0) {
-    return c.json({ error: "agents array required (at least one agent)" }, 400);
-  }
+  const parsed = SwarmStartSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "Invalid request body", details: parsed.error.flatten() }, 400);
+  const { project_id, agents, leader_model, initial_task, skip_permissions } = parsed.data;
 
   try {
     const swarmSession = await startSwarm({
@@ -592,9 +626,9 @@ api.get("/agent-defs/:name", async (c) => {
 });
 
 api.post("/agent-defs", async (c) => {
-  const body = await c.req.json();
-  const { project_id, name, description, model, tools, skills, memory, permissionMode, body: agentBody } = body;
-  if (!project_id || !name) return c.json({ error: "project_id and name required" }, 400);
+  const parsed = AgentDefCreateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "Invalid request body", details: parsed.error.flatten() }, 400);
+  const { project_id, name, description, model, tools, skills, memory, permissionMode, body: agentBody } = parsed.data;
   try {
     await createAgentDefinition(project_id, {
       name,
@@ -613,9 +647,9 @@ api.post("/agent-defs", async (c) => {
 });
 
 api.put("/agent-defs/:name", async (c) => {
-  const body = await c.req.json();
-  const { project_id, ...updates } = body;
-  if (!project_id) return c.json({ error: "project_id required" }, 400);
+  const parsed = AgentDefUpdateSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "Invalid request body", details: parsed.error.flatten() }, 400);
+  const { project_id, ...updates } = parsed.data;
   try {
     await updateAgentDefinition(project_id, c.req.param("name"), updates);
     return c.json({ ok: true });
@@ -754,8 +788,9 @@ api.get("/curation/stats", async (c) => {
 });
 
 api.post("/curation/complete", async (c) => {
-  const { project_id, details } = await c.req.json() as { project_id: string; details?: unknown };
-  if (!project_id) return c.json({ error: "project_id required" }, 400);
+  const parsed = CurationCompleteSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: "Invalid request body", details: parsed.error.flatten() }, 400);
+  const { project_id, details } = parsed.data;
   await logActivity("curation", null, "curation_completed", details ?? {});
   broadcast("curation_completed", { project_id });
   return c.json({ ok: true });

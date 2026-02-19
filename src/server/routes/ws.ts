@@ -2,7 +2,7 @@ import type { WSContext } from "hono/ws";
 
 const clients = new Set<WSContext>();
 
-setInterval(() => {
+export const pingInterval = setInterval(() => {
   const msg = JSON.stringify({ event: 'ping', timestamp: new Date().toISOString() });
   for (const client of clients) {
     try {

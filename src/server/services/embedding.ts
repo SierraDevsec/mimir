@@ -56,7 +56,7 @@ export async function generateEmbeddings(texts: string[]): Promise<(number[] | n
     return json.result.data.map((emb) => {
       if (!Array.isArray(emb)) return null;
       if (emb.length !== EMBEDDING_DIM) return null;
-      if (!emb.every(v => isFinite(v))) return null;
+      if (!emb.every(v => Number.isFinite(v))) return null;
       return emb;
     });
   } catch (err) {

@@ -1,3 +1,5 @@
+// No per-operation CHECKPOINT here — db.ts runs a 5-minute periodic CHECKPOINT
+// which is sufficient for flows (non-critical data).
 import { getDb } from "../db.js";
 
 export interface FlowRow {

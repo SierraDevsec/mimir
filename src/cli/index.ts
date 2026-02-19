@@ -544,6 +544,19 @@ program
     }
     const leaderModel = MODEL_MAP[opts.leaderModel] ?? opts.leaderModel;
 
+    // Validate model names against allowlist to prevent tmux send-keys injection
+    const MODEL_ALLOWLIST = /^[a-zA-Z0-9._-]+$/;
+    if (!MODEL_ALLOWLIST.test(leaderModel)) {
+      console.error(`[mimir] Invalid leader model name: ${leaderModel}`);
+      process.exit(1);
+    }
+    for (const agent of agents) {
+      if (!MODEL_ALLOWLIST.test(agent.model)) {
+        console.error(`[mimir] Invalid model name for agent "${agent.name}": ${agent.model}`);
+        process.exit(1);
+      }
+    }
+
     // Check tmux is available
     {
       const result = spawnSync("tmux", ["-V"], { stdio: "ignore" });

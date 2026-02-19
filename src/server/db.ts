@@ -70,6 +70,9 @@ async function initSchema(db: Database): Promise<void> {
     CREATE SEQUENCE IF NOT EXISTS flows_seq START 1;
   `);
 
+  // Migration version tracking table — currently unpopulated.
+  // Existing ALTER TABLE migrations use try/catch for idempotency (backward compat).
+  // New schema changes should INSERT a row here after applying.
   await db.exec(`
     CREATE TABLE IF NOT EXISTS _migrations (
       version    INTEGER PRIMARY KEY,

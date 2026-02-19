@@ -7,8 +7,8 @@
 import { getDb, checkpoint } from "../db.js";
 import { isEmbeddingEnabled, generateEmbedding, updateObservationEmbedding, buildEmbeddingText, backfillEmbeddings } from "./embedding.js";
 
-// Backfill missing embeddings every 30 minutes
-setInterval(async () => {
+// Backfill missing embeddings every 30 minutes (exported for cleanup on shutdown)
+export const backfillInterval = setInterval(async () => {
   try {
     await backfillEmbeddings();
   } catch (e) {
@@ -189,7 +189,9 @@ async function searchByIlike(
 
   if (query) {
     conditions.push("(o.title ILIKE ? OR o.subtitle ILIKE ? OR o.narrative ILIKE ? OR array_to_string(o.concepts, ' ') ILIKE ?)");
-    const likeQuery = `%${query}%`;
+    // Escape LIKE special chars to ensure exact substring match (not wildcard)
+    const escapedQuery = query.replace(/%/g, '\\%').replace(/_/g, '\\_');
+    const likeQuery = `%${escapedQuery}%`;
     params.push(likeQuery, likeQuery, likeQuery, likeQuery);
   }
 

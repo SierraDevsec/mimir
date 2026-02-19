@@ -25,19 +25,29 @@ export async function deleteProject(id: string): Promise<boolean> {
   const before = await db.all(`SELECT id FROM projects WHERE id = ?`, id);
   if (before.length === 0) return false;
 
-  // CASCADE delete in dependency order
-  await db.run(`DELETE FROM task_comments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`, [id]);
-  await db.run(`DELETE FROM tasks WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM context_entries WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
-  await db.run(`DELETE FROM file_changes WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
-  await db.run(`DELETE FROM messages WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM agent_registry WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM observations WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM session_summaries WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM agents WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
-  await db.run(`DELETE FROM sessions WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM flows WHERE project_id = ?`, [id]);
-  await db.run(`DELETE FROM projects WHERE id = ?`, [id]);
+  await db.exec("BEGIN TRANSACTION");
+  try {
+    // CASCADE delete in dependency order (transaction ensures atomicity)
+    await db.run(`DELETE FROM task_comments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)`, [id]);
+    await db.run(`DELETE FROM tasks WHERE project_id = ?`, [id]);
+    await db.run(`DELETE FROM context_entries WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
+    await db.run(`DELETE FROM file_changes WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
+    await db.run(`DELETE FROM activity_log WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
+    await db.run(`DELETE FROM messages WHERE project_id = ?`, [id]);
+    await db.run(`DELETE FROM agent_registry WHERE project_id = ?`, [id]);
+    await db.run(`DELETE FROM observations WHERE project_id = ?`, [id]);
+    await db.run(`DELETE FROM session_summaries WHERE project_id = ?`, [id]);
+    await db.run(`DELETE FROM agents WHERE session_id IN (SELECT id FROM sessions WHERE project_id = ?)`, [id]);
+    await db.run(`DELETE FROM sessions WHERE project_id = ?`, [id]);
+    await db.run(`DELETE FROM flows WHERE project_id = ?`, [id]);
+    await db.run(`DELETE FROM tmux_panes WHERE session_name IN (SELECT session_name FROM tmux_sessions WHERE project_id = ?)`, [id]);
+    await db.run(`DELETE FROM tmux_sessions WHERE project_id = ?`, [id]);
+    await db.run(`DELETE FROM projects WHERE id = ?`, [id]);
+    await db.exec("COMMIT");
+  } catch (err) {
+    await db.exec("ROLLBACK");
+    throw err;
+  }
 
   return true;
 }
