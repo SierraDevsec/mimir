@@ -544,8 +544,9 @@ program
     }
     const leaderModel = MODEL_MAP[opts.leaderModel] ?? opts.leaderModel;
 
-    // Validate model names against allowlist to prevent tmux send-keys injection
+    // Validate model/agent names against allowlist to prevent tmux env var injection
     const MODEL_ALLOWLIST = /^[a-zA-Z0-9._-]+$/;
+    const AGENT_NAME_ALLOWLIST = /^[a-zA-Z0-9._\-가-힣]+$/;
     if (!MODEL_ALLOWLIST.test(leaderModel)) {
       console.error(`[mimir] Invalid leader model name: ${leaderModel}`);
       process.exit(1);
@@ -553,6 +554,10 @@ program
     for (const agent of agents) {
       if (!MODEL_ALLOWLIST.test(agent.model)) {
         console.error(`[mimir] Invalid model name for agent "${agent.name}": ${agent.model}`);
+        process.exit(1);
+      }
+      if (!AGENT_NAME_ALLOWLIST.test(agent.name)) {
+        console.error(`[mimir] Invalid agent name: ${agent.name}`);
         process.exit(1);
       }
     }

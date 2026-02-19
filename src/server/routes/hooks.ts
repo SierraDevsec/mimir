@@ -362,7 +362,9 @@ hooks.post("/:event", async (c) => {
                 agentId, sessionId
               );
             } else {
-              // Agent not in DB yet (teams mode — not started via SubagentStart)
+              // Agent not yet in DB (teams mode — SubagentStart was skipped).
+              // Insert as 'active'; agents table has no 'idle' status, and
+              // TeammateIdle means the agent is alive and waiting for input.
               await startAgent(agentId, sessionId, agentName, agentType, null);
             }
           } catch (e) {

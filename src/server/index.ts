@@ -191,6 +191,10 @@ async function main() {
   const shutdown = async () => {
     console.log("\n[mimir] shutting down...");
     clearInterval(staleCleanupTimer);
+    const { pingInterval } = await import("./routes/ws.js");
+    clearInterval(pingInterval);
+    const { backfillInterval } = await import("./services/observation-store.js");
+    clearInterval(backfillInterval);
     if (process.env.SLACK_BOT_TOKEN) {
       const { stopSlackBridge } = await import("./services/slack.js");
       stopSlackBridge();

@@ -149,7 +149,7 @@ async function searchByEmbedding(
 
   params.push(limit);
 
-  if (!embedding.every(v => typeof v === "number" && isFinite(v))) return [];
+  if (!embedding.every(v => typeof v === "number" && Number.isFinite(v))) return [];
   const arrLiteral = `[${embedding.join(",")}]::FLOAT[1024]`;
 
   return db.all(
