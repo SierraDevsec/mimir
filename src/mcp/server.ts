@@ -15,6 +15,10 @@ async function apiCall(method: string, path: string, body?: unknown): Promise<un
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText })) as { error?: string };
+    throw new Error(err.error ?? `HTTP ${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 

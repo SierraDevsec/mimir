@@ -56,8 +56,12 @@ export async function getCurationStats(projectId: string): Promise<CurationStats
   // Promotion candidates
   const candidates = await getPromotionCandidates(projectId, 3, 2);
 
-  // Agent memories from filesystem
-  const memoryDir = path.resolve(process.cwd(), ".claude/agent-memory");
+  // Agent memories from filesystem — use project path from DB, not process.cwd()
+  const projectRows = await db.all(`SELECT path FROM projects WHERE id = ?`, projectId);
+  const projectPath = projectRows[0]?.path as string | undefined;
+  const memoryDir = projectPath
+    ? path.join(projectPath, ".claude/agent-memory")
+    : path.resolve(process.cwd(), ".claude/agent-memory");
   const agentMemories: CurationStats["agent_memories"] = [];
   if (fs.existsSync(memoryDir)) {
     for (const dir of fs.readdirSync(memoryDir)) {

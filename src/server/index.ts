@@ -147,6 +147,19 @@ async function main() {
 
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+
+  // Best-effort checkpoint on crash — reduces WAL corruption risk
+  process.on("uncaughtException", async (err) => {
+    console.error("[mimir] uncaughtException:", err);
+    const { checkpoint } = await import("./db.js");
+    await checkpoint().catch(() => {});
+    process.exit(1);
+  });
+  process.on("unhandledRejection", async (reason) => {
+    console.error("[mimir] unhandledRejection:", reason);
+    const { checkpoint } = await import("./db.js");
+    await checkpoint().catch(() => {});
+  });
 }
 
 main().catch((err) => {
