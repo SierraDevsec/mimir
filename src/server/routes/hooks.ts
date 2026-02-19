@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { Hono } from "hono";
-import { startSession, endSession } from "../services/session.js";
+import { startSession, endSession, reactivateSession } from "../services/session.js";
 import { startAgent, stopAgent, getAgent } from "../services/agent.js";
 import { addContextEntry } from "../services/context.js";
 import { recordFileChange } from "../services/filechange.js";
@@ -122,6 +122,8 @@ hooks.post("/:event", async (c) => {
         const agentName = agentType ?? "unknown";
         const parentAgentId = body.parent_agent_id ?? null;
 
+        // Reactivate session if auto-ended between sequential agents
+        await reactivateSession(sessionId);
         await startAgent(agentId, sessionId, agentName, agentType, parentAgentId);
         await logActivity(sessionId, agentId, "SubagentStart", { agent_name: agentName, agent_type: agentType });
         broadcast("SubagentStart", { session_id: sessionId, agent_id: agentId, agent_name: agentName });
@@ -217,6 +219,23 @@ hooks.post("/:event", async (c) => {
             input_tokens: inputTokens,
             output_tokens: outputTokens,
           });
+
+          // Auto-end session if no active agents remain
+          try {
+            const { getDb } = await import("../db.js");
+            const db = await getDb();
+            const remaining = await db.all(
+              `SELECT COUNT(*) as count FROM agents WHERE session_id = ? AND status = 'active'`,
+              sessionId
+            );
+            if (Number(remaining[0]?.count ?? 0) === 0) {
+              await endSession(sessionId);
+              broadcast("SessionEnd", { session_id: sessionId });
+              console.log(`[hooks/SubagentStop] Auto-ended session ${sessionId} (no active agents)`);
+            }
+          } catch (err) {
+            console.error("[hooks/SubagentStop] session auto-end check failed:", err);
+          }
         }
         return c.json({});
       }

@@ -48,24 +48,17 @@ const emptyModal: ModalState = {
   body: "",
 };
 
-// Parse leader→specialist relationships from agent body text
+// Parse leader→specialist relationships from agent tools frontmatter
+// tools array is comma-split, so Task(a, b) becomes ['Task(a', 'b)'] — reassemble first
 function parseTeamHierarchy(definitions: AgentDefinition[]): Map<string, string[]> {
   const hierarchy = new Map<string, string[]>();
+  const definedNames = new Set(definitions.map((d) => d.name));
   for (const def of definitions) {
-    const taskMatches = def.body.matchAll(/Task\(([^)]+)\)/g);
-    const children: string[] = [];
-    for (const m of taskMatches) {
-      const args = m[1];
-      // Extract subagent_type from Task(subagent_type) patterns
-      const typeMatch = args.match(/(?:subagent_type\s*[:=]\s*)?["']?(\w[\w-]*)["']?/);
-      if (typeMatch) {
-        const childName = typeMatch[1];
-        // Only include if it's actually a defined agent
-        if (definitions.some((d) => d.name === childName)) {
-          children.push(childName);
-        }
-      }
-    }
+    // Rejoin the tools array to reconstruct Task(...) groups
+    const toolsStr = def.tools.join(", ");
+    const taskMatch = toolsStr.match(/Task\(([^)]+)\)/);
+    if (!taskMatch) continue;
+    const children = taskMatch[1].split(",").map((s) => s.trim()).filter((n) => definedNames.has(n));
     if (children.length > 0) {
       hierarchy.set(def.name, children);
     }
@@ -192,8 +185,9 @@ export default function Agents() {
   const { data: registryAgents = [] } = useQuery<RegisteredAgent[]>({ fetcher: registryFetcher, deps: [projectId] });
   const { sessions = [], agentsBySession = {} } = runningData ?? {};
   const allAgents = Object.values(agentsBySession).flat();
-  const totalRunning = allAgents.length + registryAgents.length;
-  const activeSessions = sessions.filter((s) => (agentsBySession[s.id] ?? []).length > 0);
+  const activeAgents = allAgents.filter((a) => a.status === "active");
+  const totalRunning = activeAgents.length + registryAgents.length;
+  const activeSessions = sessions.filter((s) => (agentsBySession[s.id] ?? []).some((a) => a.status === "active"));
 
   function openCreateModal() {
     setModal({ ...emptyModal });

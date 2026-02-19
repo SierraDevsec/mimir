@@ -43,6 +43,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       openWebviewPanel(getPort(), "/skills", "Mimir Skills", getProjectId());
     } else if (command === "navigate" && args?.page === "curation") {
       openWebviewPanel(getPort(), "/curation", "Mimir Curation", getProjectId());
+    } else if (command === "navigate" && args?.page === "flows") {
+      openWebviewPanel(getPort(), "/flows", "Mimir Flow Builder", getProjectId());
     }
   });
 
@@ -60,7 +62,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
               fiveHour: usage.fiveHour?.utilization,
               fiveHourReset: usage.fiveHour?.resetsAt,
               sevenDay: usage.sevenDay?.utilization,
+              sevenDayReset: usage.sevenDay?.resetsAt,
               sevenDaySonnet: usage.sevenDaySonnet?.utilization,
+              sevenDaySonnetReset: usage.sevenDaySonnet?.resetsAt,
               extraUsage: usage.extraUsage,
             }
           : null
@@ -73,7 +77,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   refreshClaudeUsageData();
-  const usageTimer = setInterval(refreshClaudeUsageData, 3 * 60 * 1000);
+  const usageTimer = setInterval(refreshClaudeUsageData, 1 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(usageTimer) });
 
   // Handle messages from webview panels
@@ -108,6 +112,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       openWebviewPanel(getPort(), "/skills", "Mimir Skills", getProjectId())),
     vscode.commands.registerCommand("mimir.openCuration", () =>
       openWebviewPanel(getPort(), "/curation", "Mimir Curation", getProjectId())),
+    vscode.commands.registerCommand("mimir.openFlows", () =>
+      openWebviewPanel(getPort(), "/flows", "Mimir Flow Builder", getProjectId())),
 
     // Terminal commands
     vscode.commands.registerCommand("mimir.launchClaude", () =>

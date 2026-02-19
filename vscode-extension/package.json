@@ -92,6 +92,12 @@
         "icon": "$(library)"
       },
       {
+        "command": "mimir.openFlows",
+        "title": "Open Flow Builder",
+        "category": "Mimir",
+        "icon": "$(type-hierarchy)"
+      },
+      {
         "command": "mimir.startDaemon",
         "title": "Start Daemon",
         "category": "Mimir"

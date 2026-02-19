@@ -20,6 +20,7 @@ import { searchObservations, getObservationDetails, getObservationTimeline, getO
 import { getPromotionCandidates } from "../services/queries/promotionCandidates.js";
 import { getCurationStats } from "../services/curation.js";
 import { listSkills } from "../services/skill.js";
+import { createFlow, getFlow, getFlowsByProject, getAllFlows, updateFlow, deleteFlow } from "../services/flow.js";
 
 const api = new Hono();
 
@@ -661,6 +662,54 @@ api.post("/curation/complete", async (c) => {
   if (!project_id) return c.json({ error: "project_id required" }, 400);
   await logActivity("curation", null, "curation_completed", details ?? {});
   broadcast("curation_completed", { project_id });
+  return c.json({ ok: true });
+});
+
+// Flows
+api.get("/flows", async (c) => {
+  const projectId = c.req.query("project_id");
+  return c.json(projectId ? await getFlowsByProject(projectId) : await getAllFlows());
+});
+
+api.get("/flows/:id", async (c) => {
+  const id = parseInt(c.req.param("id"), 10);
+  const flow = await getFlow(id);
+  if (!flow) return c.json({ error: "not found" }, 404);
+  return c.json(flow);
+});
+
+api.post("/flows", async (c) => {
+  const body = await c.req.json();
+  const { project_id, name, description, mermaid_code, metadata } = body;
+  if (!project_id || !name) return c.json({ error: "project_id and name required" }, 400);
+  if (!mermaid_code) return c.json({ error: "mermaid_code required" }, 400);
+  const id = await createFlow(
+    project_id,
+    name,
+    mermaid_code,
+    description ?? null,
+    metadata ?? {}
+  );
+  broadcast("flow_created", { id, name, project_id });
+  return c.json({ ok: true, id }, 201);
+});
+
+api.patch("/flows/:id", async (c) => {
+  const id = parseInt(c.req.param("id"), 10);
+  const flow = await getFlow(id);
+  if (!flow) return c.json({ error: "not found" }, 404);
+  const body = await c.req.json();
+  const updated = await updateFlow(id, body);
+  if (!updated) return c.json({ error: "no changes" }, 400);
+  broadcast("flow_updated", { id, ...body });
+  return c.json({ ok: true });
+});
+
+api.delete("/flows/:id", async (c) => {
+  const id = parseInt(c.req.param("id"), 10);
+  const deleted = await deleteFlow(id);
+  if (!deleted) return c.json({ error: "not found" }, 404);
+  broadcast("flow_deleted", { id });
   return c.json({ ok: true });
 });
 

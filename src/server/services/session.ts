@@ -4,9 +4,19 @@ export async function startSession(id: string, projectId: string | null): Promis
   const db = await getDb();
   await db.run(
     `INSERT INTO sessions (id, project_id) VALUES (?, ?)
-     ON CONFLICT (id) DO UPDATE SET status = 'active', started_at = now(),
+     ON CONFLICT (id) DO UPDATE SET status = 'active', started_at = now(), ended_at = NULL,
        project_id = COALESCE(EXCLUDED.project_id, sessions.project_id)`,
     id, projectId
+  );
+}
+
+/** Reactivate a session that was auto-ended (sequential workflow pattern).
+ *  Only updates status/ended_at — does NOT reset started_at. */
+export async function reactivateSession(id: string): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    `UPDATE sessions SET status = 'active', ended_at = NULL WHERE id = ? AND status = 'ended'`,
+    id
   );
 }
 

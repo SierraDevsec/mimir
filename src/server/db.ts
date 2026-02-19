@@ -42,6 +42,7 @@ async function initSchema(db: Database): Promise<void> {
     CREATE SEQUENCE IF NOT EXISTS tmux_panes_seq START 1;
     CREATE SEQUENCE IF NOT EXISTS observations_seq START 1;
     CREATE SEQUENCE IF NOT EXISTS session_summaries_seq START 1;
+    CREATE SEQUENCE IF NOT EXISTS flows_seq START 1;
   `);
 
   await db.exec(`
@@ -199,6 +200,18 @@ async function initSchema(db: Database): Promise<void> {
       discovery_tokens INTEGER DEFAULT 0,
       created_at      TIMESTAMP DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS flows (
+      id           INTEGER PRIMARY KEY DEFAULT nextval('flows_seq'),
+      project_id   VARCHAR NOT NULL,
+      name         VARCHAR NOT NULL,
+      description  TEXT,
+      status       VARCHAR DEFAULT 'draft',
+      mermaid_code TEXT NOT NULL,
+      metadata     JSON DEFAULT '{}',
+      created_at   TIMESTAMP DEFAULT now(),
+      updated_at   TIMESTAMP DEFAULT now()
+    );
   `);
 
   // Migration: add tags column to existing tasks tables (idempotent)
@@ -258,6 +271,23 @@ async function initSchema(db: Database): Promise<void> {
 
   try {
     await db.exec(`ALTER TABLE observations ADD COLUMN embedding FLOAT[1024]`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add flow columns to tasks table
+  try {
+    await db.exec(`ALTER TABLE tasks ADD COLUMN flow_id INTEGER`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    await db.exec(`ALTER TABLE tasks ADD COLUMN flow_node_id VARCHAR`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    await db.exec(`ALTER TABLE tasks ADD COLUMN depends_on INTEGER[]`);
   } catch {
     // Column already exists — ignore
   }
