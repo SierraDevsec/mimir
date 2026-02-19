@@ -140,10 +140,20 @@ hooks.post("/:event", async (c) => {
           console.error("[hooks/SubagentStart] task auto-assign failed:", err);
         }
 
-        // Phase 3: Smart context injection
+        // Phase 3: Smart context injection (4.5s timeout — hook has 5s budget)
         let additionalContext = "";
         try {
-          additionalContext = await buildSmartContext(sessionId, agentName, agentType, parentAgentId);
+          let timeoutId: ReturnType<typeof setTimeout>;
+          const timeout = new Promise<string>(resolve => {
+            timeoutId = setTimeout(() => resolve(""), 4500);
+          });
+          additionalContext = await Promise.race([
+            buildSmartContext(sessionId, agentName, agentType, parentAgentId).then(result => {
+              clearTimeout(timeoutId);
+              return result;
+            }),
+            timeout,
+          ]);
         } catch (err) {
           console.error("[hooks/SubagentStart] buildSmartContext failed:", err);
         }

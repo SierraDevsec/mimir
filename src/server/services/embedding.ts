@@ -25,6 +25,8 @@ export async function generateEmbeddings(texts: string[]): Promise<(number[] | n
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID()}/ai/run/${CF_MODEL}`;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2000);
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -33,6 +35,7 @@ export async function generateEmbeddings(texts: string[]): Promise<(number[] | n
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text: texts }),
+      signal: controller.signal,
     });
 
     if (!res.ok) {
@@ -56,6 +59,8 @@ export async function generateEmbeddings(texts: string[]): Promise<(number[] | n
   } catch (err) {
     console.error("[embedding] CF API request failed:", err);
     return texts.map(() => null);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

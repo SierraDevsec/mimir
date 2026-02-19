@@ -20,8 +20,8 @@ fi
 
 EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // "unknown"' 2>/dev/null) || { exit 0; }
 
-# POST to daemon with 3s timeout
-RESPONSE=$(echo "$INPUT" | curl -sf --max-time 3 -X POST \
+# POST to daemon with 5s timeout
+RESPONSE=$(echo "$INPUT" | curl -sf --max-time 5 -X POST \
   -H "Content-Type: application/json" \
   -d @- \
   "${MIMIR_URL}/hooks/${EVENT}" 2>/dev/null)

@@ -15,7 +15,22 @@ export async function getDb(): Promise<Database> {
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const dbPath = path.join(DATA_DIR, "mimir.duckdb");
-  db = await Database.create(dbPath);
+
+  try {
+    db = await Database.create(dbPath);
+  } catch (err) {
+    // WAL corruption recovery: delete .wal file and retry once (uncommitted data lost)
+    const walPath = `${dbPath}.wal`;
+    if (fs.existsSync(walPath)) {
+      console.warn(`[mimir] DB open failed, WAL file detected — attempting recovery (uncommitted data lost)`);
+      fs.unlinkSync(walPath);
+      db = await Database.create(dbPath);
+      console.log(`[mimir] WAL recovery succeeded`);
+    } else {
+      throw err;
+    }
+  }
+
   await initSchema(db);
 
   // Checkpoint after schema init to flush migrations from WAL

@@ -16,7 +16,7 @@ import { createNodeWebSocket } from "@hono/node-ws";
 import { getDb } from "./db.js";
 import hooks from "./routes/hooks.js";
 import api from "./routes/api.js";
-import { addClient, removeClient } from "./routes/ws.js";
+import { addClient, removeClient, broadcast } from "./routes/ws.js";
 
 const app = new Hono();
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
@@ -114,6 +114,28 @@ async function main() {
 
   injectWebSocket(server);
 
+  // Periodic stale agent cleanup every 10 minutes
+  // Agents killed via ESC or context limit don't fire SubagentStop — catch them here
+  const staleCleanupTimer = setInterval(async () => {
+    try {
+      const db = await getDb();
+      const stale = await db.all(
+        `UPDATE agents SET status = 'completed', completed_at = now()
+         WHERE status = 'active'
+           AND started_at < now() - INTERVAL 2 HOUR
+         RETURNING id, agent_name`
+      ) as Array<{ id: string; agent_name: string }>;
+      if (stale.length > 0) {
+        console.log(`[mimir] Cleaned up ${stale.length} stale agent(s): ${stale.map(a => a.agent_name).join(", ")}`);
+        for (const a of stale) {
+          broadcast("SubagentStop", { agent_id: a.id, agent_name: a.agent_name, stale: true });
+        }
+      }
+    } catch (err) {
+      console.error("[mimir] stale agent cleanup failed:", err);
+    }
+  }, 10 * 60 * 1000);
+
   // Slack bridge (opt-in via env vars)
   if (process.env.SLACK_BOT_TOKEN && process.env.SLACK_APP_TOKEN) {
     let slackProjectId = process.env.SLACK_PROJECT_ID;
@@ -136,6 +158,7 @@ async function main() {
   // graceful shutdown
   const shutdown = async () => {
     console.log("\n[mimir] shutting down...");
+    clearInterval(staleCleanupTimer);
     if (process.env.SLACK_BOT_TOKEN) {
       const { stopSlackBridge } = await import("./services/slack.js");
       stopSlackBridge();
