@@ -67,6 +67,7 @@ src/
       statusline.ts       — StatuslineUpdate data (in-memory)
       swarm.ts            — Swarm session management
       tmux.ts             — tmux session/pane lifecycle
+      flow.ts             — Flow CRUD (mermaid_code + metadata JSON)
       usage.ts            — Claude usage tracking
       slack.ts            — Slack integration (optional)
       queries/
@@ -76,7 +77,7 @@ src/
   web/                    — React SPA (served via VSCode extension webview)
     components/Layout.tsx — embed mode (?embed=true): hides sidebar
     lib/ProjectContext.tsx — URL ?project=<id> for project selection
-    pages/                — Dashboard, Agents, Context, Tasks, Activity, Swarm, Observations, Skills, Curation
+    pages/                — Dashboard, Agents, Context, Tasks, Activity, Swarm, Observations, Skills, Curation, Flows
 vscode-extension/         — VSCode/Cursor Extension (standalone package)
 .claude/
   init-manifest.json      — Distributable items for mimir init (single source of truth)
@@ -86,7 +87,7 @@ vscode-extension/         — VSCode/Cursor Extension (standalone package)
   rules/                  — Rules (team.md, typescript.md, react.md, nodejs.md)
 ```
 
-## DuckDB Schema (15 tables)
+## DuckDB Schema (16 tables)
 
 ### Core Tables
 - **projects**: id, name, path (UNIQUE), created_at
@@ -94,13 +95,16 @@ vscode-extension/         — VSCode/Cursor Extension (standalone package)
 - **agents**: id, session_id, agent_name, agent_type, parent_agent_id, status, started_at, completed_at, context_summary, input_tokens, output_tokens
 - **context_entries**: id, session_id, agent_id, entry_type, content, tags[], created_at
 - **file_changes**: id, session_id, agent_id, file_path, change_type, created_at
-- **tasks**: id, project_id, title, description, status, assigned_to, tags[], created_at, updated_at
+- **tasks**: id, project_id, title, description, status, assigned_to, tags[], created_at, updated_at, flow_id, flow_node_id, depends_on[]
 - **task_comments**: id, task_id, author, comment_type, content, created_at
 - **activity_log**: id, session_id, agent_id, event_type, details JSON, created_at
 - **messages**: id, project_id, from_name, to_name, content, priority, status, created_at
 - **agent_registry**: agent_name, project_id (composite PK), tmux pane mapping
 - **tmux_sessions**: session_name (PK), project_id
 - **tmux_panes**: id, session_name, agent_name
+
+### Flow Tables
+- **flows**: id, project_id, name, description, status, mermaid_code, metadata (JSON), created_at, updated_at
 
 ### Mark Tables
 - **observations**: agent self-marks (type: warning/decision/discovery/note, title, concepts[], files_read[], files_modified[], promoted_to)
@@ -261,8 +265,8 @@ CHECKPOINT after every write ensures no data loss on crash. Embeddings are regen
 
 ```
 VSCode Extension (HTTP client)
-├── Sidebar WebviewView — 6-button nav + Claude Usage bars + Active Agents
-├── Editor WebviewPanel — iframe (Agents/Tasks/Marks/Skills/Curation) + custom HTML (Orchestration, Usage)
+├── Sidebar WebviewView — 7-button nav + Claude Usage bars + Active Agents
+├── Editor WebviewPanel — iframe (Agents/Tasks/Marks/Skills/Curation/Flows) + custom HTML (Orchestration, Usage)
 ├── Terminal Manager — Claude CLI + Swarm tmux (Editor area tabs)
 ├── Status Bar — "mimir: N agents" or "mimir: offline"
 └── Auto-Init — installs hooks + registers project on workspace open
@@ -274,7 +278,7 @@ mimir daemon (port 3100)
 
 ```
 vscode-extension/src/
-  extension.ts              — activate, 11 commands
+  extension.ts              — activate, 12 commands
   claude-usage.ts           — macOS Keychain OAuth → Anthropic Usage API
   terminal-manager.ts       — Claude/Swarm terminal lifecycle
   sidebar-view.ts           — Sidebar HTML (nav + usage + agents)
@@ -377,6 +381,22 @@ Teammates fire SubagentStart/SubagentStop hooks — zero code changes needed.
 | `brainstorming` | user-invoked `/brainstorming` | obra/superpowers |
 | `content-research-writer` | user-invoked `/content-research-writer` | Composio |
 | `skill-authoring-guide` | user-invoked `/skill-authoring-guide` | custom |
+
+### Flow Builder (Phase 1 complete)
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 1. DB + API | flows 테이블, CRUD 서비스 (`flow.ts`), REST 엔드포인트 | done |
+| 2. Web UI List | 플로우 목록 페이지, 사이드바 링크 | done |
+| 3. Mermaid Editor | Mermaid 코드 에디터 + 라이브 프리뷰 + 노드 메타데이터 | done |
+| 4. VSCode Extension | `mimir.openFlows` 커맨드 + 사이드바 Flows 버튼 | done |
+| 5. Flow Engine | Mermaid 파싱 → 태스크 생성 → tmux 에이전트 스폰 | not yet |
+
+- Mermaid = source of truth (구조), metadata JSON = 노드별 설정 (agentType, model, prompt)
+- Node:Task = 1:N (노드 = 단계, 하위에 여러 TDD 태스크)
+- tasks 테이블 확장: `flow_id`, `flow_node_id`, `depends_on[]`
+- Mermaid dynamic import: Vite auto code-splitting (491KB separate chunk)
+- Key files: `services/flow.ts`, `pages/Flows.tsx`, `routes/api.ts` (flows endpoints)
 
 ### Curator Automation
 

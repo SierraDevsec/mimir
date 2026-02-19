@@ -220,6 +220,18 @@ export interface Observation {
   created_at: string;
 }
 
+export interface Flow {
+  id: number;
+  project_id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  mermaid_code: string;
+  metadata: string; // JSON string — parse on client
+  created_at: string;
+  updated_at: string;
+}
+
 /** DuckDB now() stores local time but JSON serializes with 'Z' suffix.
  *  Strip 'Z' so JS treats it as local time, not UTC. */
 export function localDate(ts: string | null): Date | null {
@@ -334,4 +346,12 @@ export const api = {
   skills: (projectId: string) => get<Skill[]>(`/skills?project_id=${projectId}`),
   // Curation
   curationStats: (projectId: string) => get<CurationStats>(`/curation/stats?project_id=${projectId}`),
+  // Flows
+  flows: (projectId?: string) => get<Flow[]>(`/flows${projectId ? `?project_id=${projectId}` : ""}`),
+  flow: (id: number) => get<Flow>(`/flows/${id}`),
+  createFlow: (data: { project_id: string; name: string; mermaid_code: string; description?: string; metadata?: Record<string, unknown> }) =>
+    post<{ ok: boolean; id: number }>("/flows", data),
+  updateFlow: (id: number, data: Partial<Pick<Flow, "name" | "description" | "status" | "mermaid_code"> & { metadata: Record<string, unknown> }>) =>
+    patch<{ ok: boolean }>(`/flows/${id}`, data),
+  deleteFlow: (id: number) => del<{ ok: boolean }>(`/flows/${id}`),
 };

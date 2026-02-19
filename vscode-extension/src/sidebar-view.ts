@@ -5,7 +5,7 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
   private _view?: vscode.WebviewView;
   private _onCommand?: (command: string, args?: Record<string, string>) => void;
-  private _lastUsage: { fiveHour?: number; fiveHourReset?: string; sevenDay?: number; sevenDaySonnet?: number; extraUsage?: { isEnabled: boolean; utilization?: number } } | null = null;
+  private _lastUsage: { fiveHour?: number; fiveHourReset?: string; sevenDay?: number; sevenDayReset?: string; sevenDaySonnet?: number; sevenDaySonnetReset?: string; extraUsage?: { isEnabled: boolean; utilization?: number } } | null = null;
   private _onViewReady?: () => void;
   private _projectId: string | null = null;
 
@@ -21,8 +21,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
   postClaudeUsage(usage: {
     fiveHour?: number; fiveHourReset?: string;
-    sevenDay?: number;
-    sevenDaySonnet?: number;
+    sevenDay?: number; sevenDayReset?: string;
+    sevenDaySonnet?: number; sevenDaySonnetReset?: string;
     extraUsage?: { isEnabled: boolean; utilization?: number };
   } | null): void {
     this._lastUsage = usage;
@@ -181,10 +181,16 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
     }
     .usage-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
     .usage-pct { min-width: 32px; text-align: right; font-size: 10px; font-weight: 600; flex-shrink: 0; }
-    .usage-reset {
-      font-size: 11px; color: var(--vscode-descriptionForeground);
-      padding: 0 0 6px 0; opacity: 0.9;
+    .resets-block { margin-top: 6px; }
+    .reset-row {
+      display: flex; align-items: baseline; gap: 4px;
+      font-size: 10px; padding: 1px 0;
     }
+    .reset-label {
+      color: var(--vscode-descriptionForeground);
+      width: 48px; flex-shrink: 0;
+    }
+    .reset-time { color: var(--vscode-foreground); opacity: 0.75; }
     .u-green { color: #4ade80; } .u-yellow { color: #facc15; } .u-red { color: #f87171; }
     .ub-green { background: #4ade80; } .ub-yellow { background: #facc15; } .ub-red { background: #f87171; }
 
@@ -237,6 +243,10 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       <span class="icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 3H20C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3ZM5 5V19H19V5H5ZM7 7H9V9H7V7ZM7 11H9V13H7V11ZM7 15H9V17H7V15ZM11 7H17V9H11V7ZM11 11H17V13H11V11ZM11 15H17V17H11V15Z"/></svg></span>
       <span class="label">Curation</span>
     </button>
+    <button class="nav-btn" data-page="flows" onclick="handleNav('flows')">
+      <span class="icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 2H14V4H16V2H20V6H18V8H16V6H14V8H10V6H8V8H6V6H4V2H8V4H10V2ZM8 10H16V12H18V10H20V14H18V16H20V20H16V18H14V20H10V18H8V20H4V16H6V14H4V10H6V12H8V10ZM14 14H10V16H8V18H10V16H14V18H16V16H14V14Z"/></svg></span>
+      <span class="label">Flows</span>
+    </button>
   </div>
 
   <div class="agents-section" id="agents-list" style="display:none">
@@ -253,7 +263,6 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
 
   <div class="claude-usage" id="claude-usage" style="display:none" onclick="openPage('ClaudeUsage')">
     <div class="section-header">Claude Usage</div>
-    <div class="usage-reset" id="usage-5h-reset" style="display:none"></div>
     <div class="usage-row">
       <span class="usage-label">5 Hours</span>
       <div class="usage-bar"><div class="usage-bar-fill ub-green" id="usage-5h-bar" style="width:0%"></div></div>
@@ -273,6 +282,21 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       <span class="usage-label">Extra</span>
       <div class="usage-bar" id="usage-extra-bar-wrap"><div class="usage-bar-fill ub-green" id="usage-extra-bar" style="width:0%"></div></div>
       <span class="usage-pct u-green" id="usage-extra-pct">-</span>
+    </div>
+    <div class="resets-block" id="resets-block" style="display:none">
+      <div class="section-header" style="margin-top:4px">resets</div>
+      <div class="reset-row" id="reset-5h-row" style="display:none">
+        <span class="reset-label">5 Hours</span>
+        <span class="reset-time" id="reset-5h-time"></span>
+      </div>
+      <div class="reset-row" id="reset-7d-row" style="display:none">
+        <span class="reset-label">7 Days</span>
+        <span class="reset-time" id="reset-7d-time"></span>
+      </div>
+      <div class="reset-row" id="reset-son-row" style="display:none">
+        <span class="reset-label">Sonnet</span>
+        <span class="reset-time" id="reset-son-time"></span>
+      </div>
     </div>
   </div>
 
@@ -303,6 +327,8 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
         vscode.postMessage({ command: 'navigate', page: 'skills' });
       } else if (page === 'curation') {
         vscode.postMessage({ command: 'navigate', page: 'curation' });
+      } else if (page === 'flows') {
+        vscode.postMessage({ command: 'navigate', page: 'flows' });
       }
     }
 
@@ -316,18 +342,15 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
       vscode.postMessage({ command: 'open', page: page });
     }
 
-    function formatResetTime(ts) {
+    function formatResetAt(ts) {
       if (!ts) return '';
       const d = typeof ts === 'string' ? new Date(ts) : new Date(ts * 1000);
       const now = new Date();
-      const diff = d - now;
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) + ' ' + tz;
-      if (diff <= 0) return 'now';
-      const hours = Math.floor(diff / 3600000);
-      const mins = Math.floor((diff % 3600000) / 60000);
-      const remaining = hours > 0 ? hours + 'h ' + mins + 'm' : mins + 'm';
-      return remaining + ' · ' + timeStr;
+      const isToday = d.toDateString() === now.toDateString();
+      if (isToday) return timeStr;
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + timeStr;
     }
 
     function updateUsageBar(name, pct) {
@@ -385,11 +408,17 @@ export class SidebarViewProvider implements vscode.WebviewViewProvider {
             extraPct.style.marginLeft = 'auto';
             extraPct.textContent = 'Not enabled';
           }
-          const resetEl = document.getElementById('usage-5h-reset');
-          if (msg.usage.fiveHourReset) {
-            resetEl.style.display = 'block';
-            resetEl.textContent = 'resets in ' + formatResetTime(msg.usage.fiveHourReset);
+          function setResetRow(id, ts) {
+            const row = document.getElementById('reset-' + id + '-row');
+            const time = document.getElementById('reset-' + id + '-time');
+            if (ts) { row.style.display = 'flex'; time.textContent = formatResetAt(ts); }
+            else { row.style.display = 'none'; }
           }
+          setResetRow('5h', msg.usage.fiveHourReset);
+          setResetRow('7d', msg.usage.sevenDayReset);
+          setResetRow('son', msg.usage.sevenDaySonnetReset);
+          const hasReset = msg.usage.fiveHourReset || msg.usage.sevenDayReset || msg.usage.sevenDaySonnetReset;
+          document.getElementById('resets-block').style.display = hasReset ? 'block' : 'none';
         }
       } else if (msg.type === 'offline') {
         document.getElementById('agents-list').style.display = 'none';
