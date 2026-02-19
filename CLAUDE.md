@@ -31,7 +31,7 @@ src/
                             activity, intelligence, observation-store, embedding, curation,
                             skill, message, notify, registry, statusline, swarm, tmux, flow,
                             usage, slack, queries/relevantMarks
-  mcp/server.ts           — MCP server (7 tools: messaging + marks + promotion)
+  mcp/server.ts           — MCP server (11 tools: messaging + marks + promotion)
   web/                    — React SPA (Vite, served via VSCode extension webview)
     pages/                — Dashboard, Agents, Context, Tasks, Activity, Swarm,
                             Observations, Skills, Curation, Flows
@@ -96,7 +96,7 @@ pnpm dev / pnpm build / pnpm test / pnpm test:watch
 - **WAL auto-recovery**: on startup, if DB open fails and `.wal` file exists → delete `.wal` + retry (uncommitted data lost). Prefer `mimir stop` over `pkill` to avoid this.
 - **Daemon background**: Bash `&` dies on shell exit — `mimir start` uses `spawn` + `detached: true`
 - **Cursor extension**: `code --install-extension` → VSCode only; Cursor needs `cursor --install-extension`
-- **All data API endpoints require `project_id`** — `/sessions`, `/agents`, `/tasks`, `/activities`, `/stats`, `/flows` etc. return 400 without it. No cross-project data leakage possible.
+- **Data API endpoints require `project_id`** — `/sessions`, `/agents`, `/tasks`, `/activities`, `/stats`, `/flows`, `/messages`, `/observations`, `/registry`, `/skills` etc. return 400 without it. Exception: `/usage/*` endpoints accept optional `project_id` for global analytics.
 - **Optional API auth**: set `MIMIR_API_TOKEN` env var to enable Bearer token auth on all `/api/*` and `/hooks/*` routes. Web UI, hook.sh, MCP server, and VSCode Extension all read this env var automatically.
 
 ## Self-Marking System
