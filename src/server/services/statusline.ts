@@ -22,7 +22,16 @@ const cache = new Map<string, StatuslineData>();
 // Secondary index: expanded directory path → project_id
 const pathIndex = new Map<string, string>();
 
+const STATUSLINE_MAP_MAX = 10_000;
+
 export function updateStatusline(projectId: string, data: Omit<StatuslineData, "project_id" | "updated_at">): void {
+  // Guard against unbounded map growth — clear both maps together so they stay in sync.
+  // Statusline data is purely real-time / in-memory; clearing has no durability impact.
+  if (cache.size >= STATUSLINE_MAP_MAX) {
+    cache.clear();
+    pathIndex.clear();
+  }
+
   const entry: StatuslineData = {
     ...data,
     project_id: projectId,

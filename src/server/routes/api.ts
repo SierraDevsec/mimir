@@ -850,6 +850,61 @@ api.delete("/flows/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// POST /api/prune — Clean up old data
+api.post("/prune", async (c) => {
+  const body = await c.req.json();
+  const PruneSchema = z.object({
+    days: z.number().int().min(1).max(3650),
+    dryRun: z.boolean().default(false),
+  });
+  const parsed = PruneSchema.safeParse(body);
+  if (!parsed.success) return c.json({ error: parsed.error.message }, 400);
+
+  const { days, dryRun } = parsed.data;
+  const db = await getDb();
+  const cutoff = `now() - INTERVAL '${days} days'`;  // safe — days is validated as integer
+
+  if (dryRun) {
+    // Count what would be deleted
+    const counts = {
+      sessions: Number((await db.all(`SELECT COUNT(*) as c FROM sessions WHERE started_at < ${cutoff}`))[0].c),
+      agents: Number((await db.all(`SELECT COUNT(*) as c FROM agents WHERE started_at < ${cutoff}`))[0].c),
+      activities: Number((await db.all(`SELECT COUNT(*) as c FROM activity_log WHERE created_at < ${cutoff}`))[0].c),
+      observations: Number((await db.all(`SELECT COUNT(*) as c FROM observations WHERE created_at < ${cutoff}`))[0].c),
+      context_entries: Number((await db.all(`SELECT COUNT(*) as c FROM context_entries WHERE created_at < ${cutoff}`))[0].c),
+      file_changes: Number((await db.all(`SELECT COUNT(*) as c FROM file_changes WHERE created_at < ${cutoff}`))[0].c),
+    };
+    return c.json({ dryRun: true, wouldDelete: counts });
+  }
+
+  // Actually delete (order matters for foreign key-like dependencies)
+  const results: Record<string, number> = {};
+
+  // Delete dependent data first
+  const tables = [
+    { name: "task_comments", query: `DELETE FROM task_comments WHERE created_at < ${cutoff}` },
+    { name: "context_entries", query: `DELETE FROM context_entries WHERE created_at < ${cutoff}` },
+    { name: "file_changes", query: `DELETE FROM file_changes WHERE created_at < ${cutoff}` },
+    { name: "activity_log", query: `DELETE FROM activity_log WHERE created_at < ${cutoff}` },
+    { name: "messages", query: `DELETE FROM messages WHERE created_at < ${cutoff}` },
+    { name: "agents", query: `DELETE FROM agents WHERE started_at < ${cutoff}` },
+    { name: "sessions", query: `DELETE FROM sessions WHERE started_at < ${cutoff} AND status = 'ended'` },
+    { name: "observations", query: `DELETE FROM observations WHERE created_at < ${cutoff} AND promoted_to IS NOT NULL` },
+  ];
+
+  for (const { name, query } of tables) {
+    const deleted = await db.all(`${query} RETURNING id`);
+    results[name] = deleted.length;
+  }
+
+  // Run CHECKPOINT to reclaim space
+  try {
+    await db.exec("CHECKPOINT");
+  } catch {}
+
+  return c.json({ deleted: results });
+});
+
 api.onError((err, c) => {
   if (err instanceof SyntaxError) {
     return c.json({ error: "Invalid JSON in request body" }, 400);

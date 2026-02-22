@@ -118,7 +118,7 @@
         },
         "mimir.autoStartDaemon": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Automatically start mimir daemon on activation"
         },
         "mimir.pollingInterval": {

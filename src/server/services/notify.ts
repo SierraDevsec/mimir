@@ -4,6 +4,7 @@ import { getAgentPane, getRegisteredAgents } from "./registry.js";
 // Throttle: max 1 notification per agent per 3 seconds
 const lastNotified = new Map<string, number>();
 const THROTTLE_MS = 3_000;
+const THROTTLE_MAP_MAX = 10_000;
 
 /**
  * Send a tmux notification to wake up an idle agent session.
@@ -21,6 +22,13 @@ export async function notifyAgent(
   const last = lastNotified.get(key) ?? 0;
   if (now - last < THROTTLE_MS) {
     return { notified: false, reason: "throttled" };
+  }
+
+  // Guard against unbounded map growth (e.g. from unique project/agent key combinations).
+  // Clear all entries when the limit is exceeded — entries are only used for throttling,
+  // so the worst case on clear is a brief window with no throttling.
+  if (lastNotified.size >= THROTTLE_MAP_MAX) {
+    lastNotified.clear();
   }
 
   // Look up tmux pane

@@ -12,6 +12,7 @@
   <a href="#how-it-works">How It Works</a> &bull;
   <a href="#features">Features</a> &bull;
   <a href="#architecture">Architecture</a> &bull;
+  <a href="#troubleshooting">Troubleshooting</a> &bull;
   <a href="#roadmap">Roadmap</a> &bull;
   <a href="#contributing">Contributing</a>
 </p>
@@ -77,7 +78,25 @@ mimir init .
 
 Three commands. Your agents now share a brain.
 
-> **Prerequisites:** Node.js 22+, `jq` (for hook script)
+> **Prerequisites:** Node.js 22+, [jq](https://jqlang.github.io/jq/) — `brew install jq` (macOS) / `sudo apt install jq` (Ubuntu/Debian)
+
+---
+
+## Upgrading
+
+```bash
+# If installed globally via npm
+npm update -g mimir
+
+# If installed from source
+git pull && pnpm install && pnpm build
+```
+
+The database schema auto-migrates on daemon startup — no manual migration needed. After upgrading, restart the daemon:
+
+```bash
+mimir stop && mimir start
+```
 
 ---
 
@@ -215,6 +234,7 @@ cp .env.example .env
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MIMIR_PORT` | `3100` | Daemon port |
+| `MIMIR_API_TOKEN` | — | Bearer token auth for API/hook endpoints (optional) |
 | `CLOUDFLARE_ACCOUNT_ID` | — | RAG embeddings ([get yours](https://dash.cloudflare.com)) |
 | `CLOUDFLARE_API_TOKEN` | — | RAG embeddings (Workers AI, free tier) |
 | `SLACK_BOT_TOKEN` | — | Slack integration (optional) |
@@ -229,6 +249,44 @@ RAG embeddings are optional. Without them, Mimir falls back to text-based ILIKE 
 - `.claude/skills/` — Self-marking, self-search, self-memory, and more
 - `.claude/agents/` — Curator agent definition
 - `.claude/rules/` — Team coordination rules
+
+---
+
+## Troubleshooting
+
+### Daemon won't start / port already in use
+- Check if another mimir instance is running: `lsof -ti :3100`
+- Kill the orphan process: `kill $(lsof -ti :3100)`
+- Or use a different port: `mimir start --port 3200`
+
+### Hooks not firing after `mimir init`
+- Restart your Claude Code session (hooks are loaded at session start)
+- Verify hooks are installed: `cat .claude/hooks.json`
+- Check daemon is running: `mimir status`
+
+### DuckDB corruption / WAL recovery
+- mimir auto-recovers on startup by removing stale WAL files
+- If the daemon won't start, try: `mimir stop && mimir start`
+- As a last resort, delete `data/mimir.duckdb.wal` and restart
+
+### Agents appear stuck / zombie agents
+- Agents active > 2 hours are automatically cleaned up
+- Manual cleanup: use the Kill button in the Web UI (Agents page)
+- Or restart the daemon: `mimir stop && mimir start`
+
+### RAG/embeddings not working
+- Embeddings are optional — mimir falls back to text search (ILIKE)
+- To enable RAG: set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in your environment
+- See `.env.example` for details
+
+### Web UI shows blank page
+- Ensure the daemon is running: `mimir status`
+- Check logs for errors: `mimir logs`
+
+### Database growing too large
+- Check size: `mimir status` (shows DB size)
+- Clean old data: `mimir prune --older-than 30`
+- Use `--dry-run` to preview: `mimir prune --older-than 30 --dry-run`
 
 ---
 

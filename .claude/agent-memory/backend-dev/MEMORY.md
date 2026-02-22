@@ -1,5 +1,5 @@
 # backend-dev Memory
-> Last curated: 2026-02-07 (curator audit)
+> Last updated: 2026-02-20 (security + reliability hardening)
 
 ## Code Patterns
 
@@ -8,7 +8,8 @@
 - Functions follow: `const db = await getDb(); return db.all(query, ...params);`
 - Insert with RETURNING: `db.all('INSERT ... RETURNING id', ...)` then `Number(rows[0].id)`
 - Single-row lookups: `const rows = await db.all(query, id); return rows[0] ?? null;`
-- No transactions used anywhere currently; multi-step deletes use sequential `db.run` calls
+- Multi-step deletes/updates use BEGIN TRANSACTION / COMMIT / ROLLBACK (see deleteTask, deleteFlow)
+- Transaction pattern: `await db.exec("BEGIN TRANSACTION"); try { ...; await db.exec("COMMIT"); } catch { db.exec("ROLLBACK"); throw; }`
 
 ### DuckDB-Specific Patterns
 - VARCHAR[] columns (tags) cannot use bind params; must use literal construction:
@@ -57,6 +58,11 @@
 - `deleteTask()` calls `deleteCommentsByTask()` before deleting task (manual cascade)
 - Tags literal construction has SQL injection risk via single-quote escaping (`replace(/'/g, "''")`) -- not user-facing, but note for future
 - `usage.ts` reads from filesystem (`~/.claude/stats-cache.json`) -- will return empty array if file doesn't exist
+- `timingSafeEqual` requires equal-length Buffers — always pad both buffers to `Math.max(a.length, b.length)` using `Buffer.alloc(maxLen); buf.write(str)` before comparing
+- `shellEscape(str)` in tmux.ts: wrap in single quotes, replace `'` with `'\''` — apply to ALL user-controlled strings in shell commands (projectPath, agentName, projectId)
+- `updateFlow()` and similar UPDATE functions should use `RETURNING id` and check `result.length > 0` to detect missing rows (previously returned true always)
+- DuckDB zombie cleanup at boot uses `LIMIT 1000` in RETURNING clause to avoid runaway bulk updates
+- `dbInitPromise` race fix: set promise before awaiting, only reset in `.catch()` on the same promise instance (prevents concurrent parallel inits)
 
 ## Cross-domain Dependencies
 
@@ -91,6 +97,13 @@
 - `GET /api/observations/:id` — single observation detail
 - `GET /api/summaries` — list with optional project_id, agent_id, limit filters
 
+## Known Gotchas (additions)
+
+- Test schema (`src/__tests__/setup.ts`) must include ALL columns that production DB has via migrations: `tasks.flow_id`, `tasks.flow_node_id`, `tasks.depends_on`; `observations.embedding FLOAT[1024]`, `observations.status`, `observations.promoted_to`; plus full table definitions for `agent_registry`, `tmux_sessions`, `tmux_panes`, `flows`. Missing columns cause DuckDB Binder errors in integration tests.
+- `deleteFlow()` clears `tasks.flow_id`/`flow_node_id` via UPDATE before deleting — test schema must have those columns
+- To test hook routes: mock `ws.js` broadcast (no WS server), `intelligence.js` buildSmartContext/buildPromptContext (heavy RAG calls), `embedding.js`, `observation-store.js` startBackfill/stopBackfill. Hooks always return 200 with valid JSON even on errors.
+- MCP server (`src/mcp/server.ts`) calls main() on import (stdio transport) — don't import it directly in tests. Test tool handler logic by reimplementing in test file + mocking fetch.
+
 ## Recent Context
 
 - Query modularization: intelligence.ts refactored from 342 to 183 lines (46% reduction), 11 query modules extracted to `services/queries/`
@@ -98,3 +111,5 @@
 - Project filtering added across all endpoints (sessions, agents, activities, stats)
 - Token tracking columns (input_tokens, output_tokens) added to agents table with migration
 - Observer System v2 implemented (2026-02-09): batch processing, hints-only smart context, 4000-char budget, 200 tests pass
+- Security + reliability hardening (2026-02-20): shell injection fix (tmux.ts), timingSafeEqual token auth (index.ts), DB indexes migration 12, deleteFlow transaction, updateFlow RETURNING, Slack exponential backoff, lastNotified/statusline map size caps, shutdown try/catch/finally + hard timeout, getDb() race fix — 189 tests pass
+- CLI hardening (2026-02-20): execSync → execFileSync in cli/index.ts; version read dynamically via findPackageVersion() (walks up 5 dirs for package.json); MCP config detects dist vs src via `__filename.includes("/dist/")`; spawnDaemon() shared function extracted; health check retry loop in `start`; daemon check in `ui`; Korean swarm messages translated to English; `prune` command added calling POST /api/prune

@@ -1,8 +1,27 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { spawn, execSync, spawnSync } from "node:child_process";
+import { spawn, execFileSync, spawnSync } from "node:child_process";
+import { readFileSync, statSync } from "node:fs";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Walk up directory tree to find package.json and return version
+function findPackageVersion(): string {
+  let dir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    try {
+      const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf-8"));
+      if (pkg.version) return pkg.version;
+    } catch {}
+    dir = dirname(dir);
+  }
+  return "0.0.0";
+}
 
 const program = new Command();
 
@@ -25,7 +44,44 @@ const LOG_FILE = path.join(DATA_DIR, "mimir.log");
 program
   .name("mimir")
   .description("Claude Code hook monitoring daemon")
-  .version("0.1.6"); // TODO: read from package.json
+  .version(findPackageVersion());
+
+// Shared daemon spawn function used by both `start` and `init` commands
+function spawnDaemon(port: number): { pid: number | undefined } {
+  const baseDir = import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname);
+  const serverEntry = path.resolve(baseDir, "../server/index.js");
+  const isTs = serverEntry.endsWith(".ts");
+  const cmd = isTs ? "tsx" : "node";
+
+  const env = { ...process.env, MIMIR_PORT: String(port) };
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const logFd = fs.openSync(LOG_FILE, "a");
+  const child = spawn(cmd, [serverEntry], {
+    env,
+    detached: true,
+    stdio: ["ignore", logFd, logFd],
+  });
+  fs.closeSync(logFd);
+  child.unref();
+
+  if (child.pid) {
+    const dataDir = path.dirname(PID_FILE);
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(PID_FILE, String(child.pid));
+  }
+
+  return { pid: child.pid };
+}
+
+// Validate port number
+function validatePort(portStr: string): number {
+  const port = parseInt(portStr, 10);
+  if (isNaN(port) || port < 1 || port > 65535) {
+    console.error("[mimir] Invalid port number");
+    process.exit(1);
+  }
+  return port;
+}
 
 // mimir start
 program
@@ -33,21 +89,23 @@ program
   .description("Start the mimir daemon")
   .option("-p, --port <port>", "Port number", String(MIMIR_PORT))
   .action(async (opts) => {
-    // 이미 실행 중인지 확인 (PID file)
+    // Check if already running (PID file)
     if (isRunning()) {
       console.log(`[mimir] Already running (PID: ${readPid()})`);
       return;
     }
 
+    const port = validatePort(opts.port);
+
     // Port already in use by orphan process? Kill it first.
     try {
-      const lsofOutput = execSync(`lsof -ti :${opts.port}`, { encoding: "utf-8" }).trim();
+      const lsofOutput = execFileSync("lsof", ["-ti", `:${port}`], { encoding: "utf-8" }).trim();
       if (lsofOutput) {
         const pids = lsofOutput.split("\n").map((p: string) => p.trim()).filter(Boolean);
         for (const p of pids) {
           try {
             process.kill(parseInt(p, 10), "SIGTERM");
-            console.log(`[mimir] Killed orphan process on port ${opts.port} (PID: ${p})`);
+            console.log(`[mimir] Killed orphan process on port ${port} (PID: ${p})`);
           } catch { /* already dead */ }
         }
         // Wait for port to free up
@@ -55,35 +113,22 @@ program
       }
     } catch { /* lsof found nothing — port is free */ }
 
-    const serverEntry = path.resolve(
-      import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname),
-      "../server/index.js"
-    );
+    const { pid } = spawnDaemon(port);
 
-    // tsx로 실행 (dev) 또는 node로 실행 (build)
-    const isTs = serverEntry.endsWith(".ts");
-    const cmd = isTs ? "tsx" : "node";
-    const actualEntry = isTs
-      ? serverEntry
-      : serverEntry;
+    if (pid) {
+      console.log(`[mimir] Daemon started (PID: ${pid}, Port: ${port})`);
 
-    const env = { ...process.env, MIMIR_PORT: opts.port };
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    const logFd = fs.openSync(LOG_FILE, "a");
-    const child = spawn(cmd, [actualEntry], {
-      env,
-      detached: true,
-      stdio: ["ignore", logFd, logFd],
-    });
-    fs.closeSync(logFd);
-
-    child.unref();
-
-    if (child.pid) {
-      const dataDir = path.dirname(PID_FILE);
-      fs.mkdirSync(dataDir, { recursive: true });
-      fs.writeFileSync(PID_FILE, String(child.pid));
-      console.log(`[mimir] Daemon started (PID: ${child.pid}, Port: ${opts.port})`);
+      // Wait up to 5 seconds for daemon to be healthy
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        try {
+          const resp = await fetch(`http://localhost:${port}/api/health`);
+          if (resp.ok) {
+            console.log(`[mimir] Daemon is ready.`);
+            break;
+          }
+        } catch { /* not ready yet */ }
+      }
     } else {
       console.error("[mimir] Failed to start daemon");
       process.exit(1);
@@ -113,8 +158,9 @@ program
     // 2) Fallback: kill whatever is on the port (handles stale/orphan processes)
     if (!killed) {
       try {
-        const port = process.env.MIMIR_PORT || "3100";
-        const lsofOutput = execSync(`lsof -ti :${port}`, { encoding: "utf-8" }).trim();
+        const portStr = process.env.MIMIR_PORT || "3100";
+        const port = validatePort(portStr);
+        const lsofOutput = execFileSync("lsof", ["-ti", `:${port}`], { encoding: "utf-8" }).trim();
         if (lsofOutput) {
           const pids = lsofOutput.split("\n").map((p: string) => p.trim()).filter(Boolean);
           for (const p of pids) {
@@ -144,6 +190,14 @@ program
       const res = await fetch(`${MIMIR_URL}/api/health`);
       const health = await res.json() as { status: string; uptime: number };
       console.log(`[mimir] Server: ${health.status} (uptime: ${Math.round(health.uptime)}s)`);
+
+      // Show database file size
+      const dbPath = join(DATA_DIR, "mimir.duckdb");
+      try {
+        const stat = statSync(dbPath);
+        const sizeMB = (stat.size / 1024 / 1024).toFixed(1);
+        console.log(`  Database: ${sizeMB} MB`);
+      } catch {}
 
       const projectsRes = await fetch(`${MIMIR_URL}/api/projects`, { headers: authHeaders() });
       const projects = await projectsRes.json() as Array<{ id: string; name: string }>;
@@ -248,11 +302,31 @@ program
     }
 
     if (!mcpConfig.mcpServers) mcpConfig.mcpServers = {};
-    mcpConfig.mcpServers["mimir-messaging"] = {
-      command: "npx",
-      args: ["tsx", mcpServerPath],
-      env: { MIMIR_PROJECT_ID: projectId },
+
+    // Detect if running from compiled dist/ or source (dev)
+    const isBuilt = __filename.includes("/dist/");
+    const mcpEnv: Record<string, string> = {
+      MIMIR_PROJECT_ID: projectId,
+      ...(process.env.MIMIR_PORT ? { MIMIR_PORT: process.env.MIMIR_PORT } : {}),
+      ...(process.env.MIMIR_API_TOKEN ? { MIMIR_API_TOKEN: process.env.MIMIR_API_TOKEN } : {}),
     };
+
+    if (isBuilt) {
+      // Production: running from dist/, use node with compiled .js file
+      const mcpServerJs = join(__dirname, "..", "mcp", "server.js");
+      mcpConfig.mcpServers["mimir-messaging"] = {
+        command: "node",
+        args: [mcpServerJs],
+        env: mcpEnv,
+      };
+    } else {
+      // Development: running from src/, use npx tsx with .ts file
+      mcpConfig.mcpServers["mimir-messaging"] = {
+        command: "npx",
+        args: ["tsx", mcpServerPath],
+        env: mcpEnv,
+      };
+    }
 
     fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
     console.log(`[mimir] MCP server configured: ${mcpConfigPath}`);
@@ -416,25 +490,12 @@ program
       daemonRunning = true;
     } catch {
       console.log(`[mimir] Daemon not running on port ${port}, starting...`);
-      // Start daemon with specified port
-      const serverEntry = path.resolve(baseDir, "../server/index.js");
-      const isTs = serverEntry.endsWith(".ts");
-      const cmd = isTs ? "tsx" : "node";
-      const env = { ...process.env, MIMIR_PORT: port };
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-      const logFd = fs.openSync(LOG_FILE, "a");
-      const child = spawn(cmd, [serverEntry], {
-        env,
-        detached: true,
-        stdio: ["ignore", logFd, logFd],
-      });
-      fs.closeSync(logFd);
-      child.unref();
-      if (child.pid) {
-        fs.writeFileSync(PID_FILE, String(child.pid));
-        console.log(`[mimir] Daemon started (PID: ${child.pid}, Port: ${port})`);
+      const portNum = validatePort(port);
+      const { pid } = spawnDaemon(portNum);
+      if (pid) {
+        console.log(`[mimir] Daemon started (PID: ${pid}, Port: ${port})`);
         daemonRunning = true;
-        // Wait a bit for daemon to initialize
+        // Wait for daemon to initialize
         await new Promise(r => setTimeout(r, 1000));
       }
     }
@@ -499,19 +560,80 @@ program
 program
   .command("ui")
   .description("Open Web UI in browser")
-  .action(() => {
+  .action(async () => {
+    // Check if daemon is running before opening browser
+    try {
+      const resp = await fetch(`${MIMIR_URL}/api/health`);
+      if (!resp.ok) throw new Error("Daemon not healthy");
+    } catch {
+      console.error("[mimir] Daemon is not running. Start it with: mimir start");
+      process.exit(1);
+    }
+
     const url = MIMIR_URL;
     console.log(`[mimir] Opening ${url} ...`);
     try {
       if (process.platform === "darwin") {
-        execSync(`open ${url}`);
+        execFileSync("open", [url]);
       } else if (process.platform === "linux") {
-        execSync(`xdg-open ${url}`);
+        execFileSync("xdg-open", [url]);
       } else {
-        execSync(`start ${url}`);
+        execFileSync("cmd", ["/c", "start", url]);
       }
     } catch {
       console.log(`[mimir] Could not open browser. Visit: ${url}`);
+    }
+  });
+
+// mimir prune
+program
+  .command("prune")
+  .description("Clean up old data from the database")
+  .option("--older-than <days>", "Delete data older than N days", "30")
+  .option("--dry-run", "Show what would be deleted without deleting")
+  .action(async (opts) => {
+    const days = parseInt(opts.olderThan, 10);
+    if (isNaN(days) || days < 1) {
+      console.error("[mimir] Invalid --older-than value. Must be a positive integer.");
+      process.exit(1);
+    }
+
+    console.log(`[mimir] Pruning data older than ${days} days${opts.dryRun ? " (dry run)" : ""}...`);
+
+    const resp = await fetch(`${MIMIR_URL}/api/prune`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ days, dryRun: opts.dryRun || false }),
+    });
+
+    if (resp.status === 404) {
+      console.error("[mimir] Server does not support prune yet. Please update mimir.");
+      process.exit(1);
+    }
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error(`[mimir] Prune failed: ${text}`);
+      process.exit(1);
+    }
+
+    const result = await resp.json() as {
+      deleted?: Record<string, number>;
+      would_delete?: Record<string, number>;
+      dryRun?: boolean;
+    };
+
+    const counts = result.deleted ?? result.would_delete ?? {};
+    const prefix = opts.dryRun ? "Would delete" : "Deleted";
+
+    for (const [table, count] of Object.entries(counts)) {
+      console.log(`  ${prefix} ${count} row(s) from ${table}`);
+    }
+
+    if (opts.dryRun) {
+      console.log("[mimir] Dry run complete. Re-run without --dry-run to apply.");
+    } else {
+      console.log("[mimir] Prune complete.");
     }
   });
 
@@ -519,7 +641,7 @@ program
 program
   .command("swarm")
   .description("Launch multi-agent swarm in tmux panes")
-  .requiredOption("-a, --agents <names>", "Comma-separated agent names with optional model (e.g. '기획팀:opus,개발팀:sonnet')")
+  .requiredOption("-a, --agents <names>", "Comma-separated agent names with optional model (e.g. 'planner:opus,dev:sonnet')")
   .option("-t, --task <task>", "Initial task to send to all agents")
   .option("-m, --model <model>", "Default model for agents without :model suffix", "claude-sonnet-4-5")
   .option("--leader-model <model>", "Model for orchestrator", "claude-opus-4-6")
@@ -629,7 +751,7 @@ program
     if (opts.task) {
       console.log(`[mimir] Sending initial task to all agents...`);
 
-      // Task to each agent with clear instructions
+      // Send task to each agent with clear instructions
       for (const { name: agent } of agents) {
         const otherAgents = agentNames.filter(a => a !== agent);
         try {
@@ -641,15 +763,15 @@ program
               from_name: "orchestrator",
               to_name: agent,
               content: [
-                `[작업 지시] ${opts.task}`,
+                `[Task Instructions] ${opts.task}`,
                 ``,
-                `팀 구성: ${teamList}`,
-                `협업 대상: ${otherAgents.join(", ")}`,
+                `Team composition: ${teamList}`,
+                `Collaborators: ${otherAgents.join(", ")}`,
                 ``,
-                `규칙:`,
-                `- 작업이 완료되면 orchestrator에게 최종 결과만 간단히 보고하세요`,
-                `- 상대 팀과 메시지는 필요한 경우에만 보내세요`,
-                `- 보고 후에는 새 지시가 올 때까지 대기하세요`,
+                `Rules:`,
+                `- When your task is complete, report the final result briefly to the orchestrator`,
+                `- Only message other agents when coordination is required`,
+                `- After reporting, wait for new instructions`,
               ].join("\n"),
               priority: "high",
             }),
@@ -669,13 +791,13 @@ program
             from_name: "system",
             to_name: "orchestrator",
             content: [
-              `[orchestration 시작] ${agentNames.length}개 팀에게 작업을 배정했습니다.`,
+              `[Orchestration started] Task assigned to ${agentNames.length} agent(s).`,
               ``,
-              `팀 구성: ${teamList}`,
-              `작업 내용: ${opts.task}`,
+              `Team composition: ${teamList}`,
+              `Task: ${opts.task}`,
               ``,
-              `각 팀이 완료 보고를 보내면 read_messages로 확인하세요.`,
-              `모든 팀의 보고가 오면 종합 결과를 정리해주세요.`,
+              `Check read_messages for completion reports from each agent.`,
+              `Once all agents have reported, compile the final result.`,
             ].join("\n"),
             priority: "high",
           }),

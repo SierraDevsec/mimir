@@ -1,13 +1,16 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useSearchParams, useLocation } from "react-router-dom";
-import { RiDashboardLine, RiRobotLine, RiTaskLine, RiTeamLine, RiEyeLine, RiMagicLine, RiShieldCheckLine, RiGitBranchLine } from "react-icons/ri";
+import { RiDashboardLine, RiRobotLine, RiTaskLine, RiTeamLine, RiEyeLine, RiMagicLine, RiShieldCheckLine, RiGitBranchLine, RiDatabase2Line, RiPulseLine } from "react-icons/ri";
 import { useProject } from "../lib/ProjectContext";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 const links = [
   { to: "/", label: "Dashboard", icon: RiDashboardLine },
   { to: "/agents", label: "Agents", icon: RiRobotLine },
   { to: "/swarm", label: "Swarm", icon: RiTeamLine },
   { to: "/tasks", label: "Tasks", icon: RiTaskLine },
+  { to: "/context", label: "Context", icon: RiDatabase2Line },
+  { to: "/activity", label: "Activity", icon: RiPulseLine },
   { to: "/observations", label: "Observations", icon: RiEyeLine },
   { to: "/skills", label: "Skills", icon: RiMagicLine },
   { to: "/curation", label: "Curation", icon: RiShieldCheckLine },
@@ -35,7 +38,9 @@ export default function Layout() {
     return (
       <div className="h-screen bg-transparent">
         <main className={`h-full ${pathname === "/swarm" ? "overflow-hidden" : "overflow-auto p-6"}`}>
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     );
@@ -86,7 +91,9 @@ export default function Layout() {
       </nav>
 
       <main className="flex-1 p-6 overflow-auto bg-[var(--bg-primary)]">
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   );

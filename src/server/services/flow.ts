@@ -91,17 +91,25 @@ export async function updateFlow(
   updates.push("updated_at = now()");
   values.push(id);
 
-  await db.run(
-    `UPDATE flows SET ${updates.join(", ")} WHERE id = ?`,
+  const result = await db.all(
+    `UPDATE flows SET ${updates.join(", ")} WHERE id = ? RETURNING id`,
     ...values
   );
-  return true;
+  // Return false if no row matched (flow doesn't exist)
+  return result.length > 0;
 }
 
 export async function deleteFlow(id: number): Promise<boolean> {
   const db = await getDb();
-  // Clear flow_id from any linked tasks
-  await db.run(`UPDATE tasks SET flow_id = NULL, flow_node_id = NULL WHERE flow_id = ?`, id);
-  const result = await db.all(`DELETE FROM flows WHERE id = ? RETURNING id`, id);
-  return result.length > 0;
+  await db.exec("BEGIN TRANSACTION");
+  try {
+    // Clear flow_id from any linked tasks first, then delete the flow
+    await db.run(`UPDATE tasks SET flow_id = NULL, flow_node_id = NULL WHERE flow_id = ?`, id);
+    const result = await db.all(`DELETE FROM flows WHERE id = ? RETURNING id`, id);
+    await db.exec("COMMIT");
+    return result.length > 0;
+  } catch (err) {
+    try { await db.exec("ROLLBACK"); } catch (rollbackErr) { console.error("[mimir] ROLLBACK failed (flow):", rollbackErr); }
+    throw err;
+  }
 }

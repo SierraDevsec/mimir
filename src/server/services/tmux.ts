@@ -3,6 +3,14 @@ import { promisify } from "node:util";
 import { getDb } from "../db.js";
 import { registerAgent } from "./registry.js";
 
+/**
+ * Escape a string for safe interpolation inside a shell single-quoted string.
+ * Wraps in single quotes and escapes internal single quotes as '\''.
+ */
+function shellEscape(str: string): string {
+  return `'${str.replace(/'/g, "'\\''")}'`;
+}
+
 const execFileAsync = promisify(execFile);
 
 /** All tmux commands use a dedicated socket so mimir sessions are isolated */
@@ -169,13 +177,15 @@ export async function startClaudeSession(
   const projectPath = (projectResult[0] as { path: string }).path;
 
   // Send command to pane
-  // Change to project directory, set environment variables, and start claude session
+  // Change to project directory, set environment variables, and start claude session.
+  // shellEscape() wraps values in single quotes with internal single-quotes escaped
+  // as '\'' — prevents shell injection via projectPath, agentName, or projectId.
   const claudeCmd = skipPermissions ? `claude --dangerously-skip-permissions` : `claude`;
   const command = [
-    `cd "${projectPath}"`,
+    `cd ${shellEscape(projectPath)}`,
     `unset CLAUDECODE`,
-    `export MIMIR_AGENT_NAME="${agentName}"`,
-    `export MIMIR_PROJECT_ID="${projectId}"`,
+    `export MIMIR_AGENT_NAME=${shellEscape(agentName)}`,
+    `export MIMIR_PROJECT_ID=${shellEscape(projectId)}`,
     claudeCmd,
   ].join(" && ");
 

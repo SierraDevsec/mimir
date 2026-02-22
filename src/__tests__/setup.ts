@@ -34,6 +34,10 @@ export async function truncateAllTables(db: Database): Promise<void> {
   await db.run("DELETE FROM context_entries");
   await db.run("DELETE FROM task_comments");
   await db.run("DELETE FROM tasks");
+  await db.run("DELETE FROM flows");
+  await db.run("DELETE FROM tmux_panes");
+  await db.run("DELETE FROM tmux_sessions");
+  await db.run("DELETE FROM agent_registry");
   await db.run("DELETE FROM agents");
   await db.run("DELETE FROM sessions");
   await db.run("DELETE FROM projects");
@@ -50,6 +54,8 @@ async function initTestSchema(db: Database): Promise<void> {
     CREATE SEQUENCE IF NOT EXISTS observations_seq START 1;
     CREATE SEQUENCE IF NOT EXISTS session_summaries_seq START 1;
     CREATE SEQUENCE IF NOT EXISTS messages_seq START 1;
+    CREATE SEQUENCE IF NOT EXISTS tmux_panes_seq START 1;
+    CREATE SEQUENCE IF NOT EXISTS flows_seq START 1;
   `);
 
   await db.exec(`
@@ -102,15 +108,18 @@ async function initTestSchema(db: Database): Promise<void> {
     );
 
     CREATE TABLE IF NOT EXISTS tasks (
-      id          INTEGER PRIMARY KEY DEFAULT nextval('tasks_seq'),
-      project_id  VARCHAR,
-      title       VARCHAR NOT NULL,
-      description TEXT,
-      status      VARCHAR DEFAULT 'pending',
-      assigned_to VARCHAR,
-      tags        VARCHAR[],
-      created_at  TIMESTAMP DEFAULT now(),
-      updated_at  TIMESTAMP DEFAULT now()
+      id           INTEGER PRIMARY KEY DEFAULT nextval('tasks_seq'),
+      project_id   VARCHAR,
+      title        VARCHAR NOT NULL,
+      description  TEXT,
+      status       VARCHAR DEFAULT 'pending',
+      assigned_to  VARCHAR,
+      tags         VARCHAR[],
+      flow_id      INTEGER,
+      flow_node_id VARCHAR,
+      depends_on   INTEGER[],
+      created_at   TIMESTAMP DEFAULT now(),
+      updated_at   TIMESTAMP DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS task_comments (
@@ -144,6 +153,35 @@ async function initTestSchema(db: Database): Promise<void> {
       created_at TIMESTAMP DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS agent_registry (
+      agent_name    VARCHAR NOT NULL,
+      project_id    VARCHAR NOT NULL,
+      tmux_pane     VARCHAR,
+      session_id    VARCHAR,
+      status        VARCHAR DEFAULT 'active',
+      registered_at TIMESTAMP DEFAULT now(),
+      last_seen_at  TIMESTAMP DEFAULT now(),
+      PRIMARY KEY (agent_name, project_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS tmux_sessions (
+      session_name VARCHAR PRIMARY KEY,
+      project_id   VARCHAR NOT NULL,
+      status       VARCHAR DEFAULT 'active',
+      agents_json  VARCHAR,
+      created_at   TIMESTAMP DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS tmux_panes (
+      id           INTEGER PRIMARY KEY DEFAULT nextval('tmux_panes_seq'),
+      pane_id      VARCHAR NOT NULL UNIQUE,
+      session_name VARCHAR NOT NULL,
+      window_id    VARCHAR,
+      agent_name   VARCHAR,
+      status       VARCHAR DEFAULT 'active',
+      created_at   TIMESTAMP DEFAULT now()
+    );
+
     CREATE TABLE IF NOT EXISTS observations (
       id              INTEGER PRIMARY KEY DEFAULT nextval('observations_seq'),
       session_id      VARCHAR NOT NULL,
@@ -158,10 +196,23 @@ async function initTestSchema(db: Database): Promise<void> {
       files_read      VARCHAR[],
       files_modified  VARCHAR[],
       discovery_tokens INTEGER DEFAULT 0,
-      source          VARCHAR DEFAULT 'lightweight',
+      source          VARCHAR DEFAULT 'self-mark',
       status          VARCHAR DEFAULT 'active',
       promoted_to     VARCHAR,
+      embedding       FLOAT[1024],
       created_at      TIMESTAMP DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS flows (
+      id           INTEGER PRIMARY KEY DEFAULT nextval('flows_seq'),
+      project_id   VARCHAR NOT NULL,
+      name         VARCHAR NOT NULL,
+      description  TEXT,
+      status       VARCHAR DEFAULT 'draft',
+      mermaid_code TEXT NOT NULL,
+      metadata     JSON DEFAULT '{}',
+      created_at   TIMESTAMP DEFAULT now(),
+      updated_at   TIMESTAMP DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS session_summaries (

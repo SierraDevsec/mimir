@@ -159,11 +159,18 @@ function connectWsForOutbound(app: App, channelId: string): void {
   const wsUrl = `ws://localhost:${MIMIR_PORT}/ws`;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Exponential backoff: start at 1s, double each attempt, cap at 5 minutes
+  const BACKOFF_MIN_MS = 1_000;
+  const BACKOFF_MAX_MS = 5 * 60 * 1_000;
+  let backoffMs = BACKOFF_MIN_MS;
+
   function connect() {
     const ws = new WebSocket(wsUrl);
 
     ws.on("open", () => {
       console.log("[slack] WebSocket connected for outbound relay");
+      // Reset backoff on successful connection
+      backoffMs = BACKOFF_MIN_MS;
     });
 
     ws.on("message", async (raw) => {
@@ -193,8 +200,10 @@ function connectWsForOutbound(app: App, channelId: string): void {
     });
 
     ws.on("close", () => {
-      console.log("[slack] WebSocket disconnected, reconnecting in 3s...");
-      reconnectTimer = setTimeout(connect, 3000);
+      console.log(`[slack] WebSocket disconnected, reconnecting in ${backoffMs}ms...`);
+      reconnectTimer = setTimeout(connect, backoffMs);
+      // Double backoff for next attempt, capped at max
+      backoffMs = Math.min(backoffMs * 2, BACKOFF_MAX_MS);
     });
 
     ws.on("error", (err) => {

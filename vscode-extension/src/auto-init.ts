@@ -169,9 +169,13 @@ async function registerProject(workspacePath: string, port: number): Promise<voi
   const projectName = path.basename(workspacePath);
   const projectId = projectName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = process.env.MIMIR_API_TOKEN;
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     await fetch(`http://localhost:${port}/hooks/RegisterProject`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         project_id: projectId,
         project_name: projectName,

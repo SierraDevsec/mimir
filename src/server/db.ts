@@ -14,9 +14,16 @@ let checkpointTimer: ReturnType<typeof setInterval> | null = null;
 export async function getDb(): Promise<Database> {
   if (db) return db;
   if (!dbInitPromise) {
-    dbInitPromise = initDb().catch((err) => {
-      dbInitPromise = null; // 실패 시 다음 호출에서 재시도 허용
-      throw err;
+    // Set the promise atomically BEFORE awaiting — concurrent callers
+    // will all await the same promise rather than launching parallel inits.
+    // Reset to null only in the catch handler so failed inits can be retried.
+    const promise = initDb();
+    dbInitPromise = promise;
+    promise.catch(() => {
+      // Only reset if this specific promise is still the current one
+      if (dbInitPromise === promise) {
+        dbInitPromise = null;
+      }
     });
   }
   return dbInitPromise;
@@ -324,6 +331,20 @@ async function initSchema(db: Database): Promise<void> {
 
   await runMigration(db, 11, "tasks_add_depends_on",
     () => db.exec(`ALTER TABLE tasks ADD COLUMN depends_on INTEGER[]`));
+
+  await runMigration(db, 12, "add_performance_indexes",
+    () => db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_sessions_project_status ON sessions(project_id, status);
+      CREATE INDEX IF NOT EXISTS idx_agents_session_status ON agents(session_id, status);
+      CREATE INDEX IF NOT EXISTS idx_agents_name ON agents(agent_name);
+      CREATE INDEX IF NOT EXISTS idx_observations_project ON observations(project_id, session_id);
+      CREATE INDEX IF NOT EXISTS idx_observations_promoted ON observations(promoted_to);
+      CREATE INDEX IF NOT EXISTS idx_messages_project_status ON messages(project_id, status);
+      CREATE INDEX IF NOT EXISTS idx_activity_session ON activity_log(session_id);
+      CREATE INDEX IF NOT EXISTS idx_context_session ON context_entries(session_id);
+      CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
+      CREATE INDEX IF NOT EXISTS idx_file_changes_session ON file_changes(session_id);
+    `));
 
 }
 

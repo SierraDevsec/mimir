@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { timingSafeEqual } from "node:crypto";
 
 // Load .env if present (Node 22 built-in)
 const __dirname_env = dirname(fileURLToPath(import.meta.url));
@@ -13,10 +14,10 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { createNodeWebSocket } from "@hono/node-ws";
-import { getDb } from "./db.js";
+import { getDb, closeDb } from "./db.js";
 import hooks from "./routes/hooks.js";
 import api from "./routes/api.js";
-import { addClient, removeClient, broadcast } from "./routes/ws.js";
+import { addClient, removeClient, broadcast, pingInterval } from "./routes/ws.js";
 
 const app = new Hono();
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
@@ -24,18 +25,36 @@ const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 // Optional Bearer token auth — enable by setting MIMIR_API_TOKEN env var
 // Protects against accidental port exposure (SSH tunnels, container port mapping, etc.)
 const API_TOKEN = process.env.MIMIR_API_TOKEN;
+
+/**
+ * Timing-safe bearer token comparison.
+ * timingSafeEqual requires same-length buffers — pad to max length so comparison
+ * takes constant time regardless of string length differences.
+ */
+function isValidToken(auth: string | undefined): boolean {
+  if (!API_TOKEN) return true;
+  const expected = `Bearer ${API_TOKEN}`;
+  const actual = auth ?? "";
+  const maxLen = Math.max(actual.length, expected.length);
+  const bufA = Buffer.alloc(maxLen);
+  const bufB = Buffer.alloc(maxLen);
+  bufA.write(actual);
+  bufB.write(expected);
+  return timingSafeEqual(bufA, bufB);
+}
+
 if (API_TOKEN) {
   app.use("/api/*", async (c, next) => {
     if (c.req.path === "/api/health") return next(); // health check always allowed
     const auth = c.req.header("Authorization");
-    if (!auth || auth !== `Bearer ${API_TOKEN}`) {
+    if (!isValidToken(auth)) {
       return c.json({ error: "Unauthorized" }, 401);
     }
     return next();
   });
   app.use("/hooks/*", async (c, next) => {
     const auth = c.req.header("Authorization");
-    if (!auth || auth !== `Bearer ${API_TOKEN}`) {
+    if (!isValidToken(auth)) {
       return c.json({ error: "Unauthorized" }, 401);
     }
     return next();
@@ -54,7 +73,8 @@ app.get(
       // Risk is low: this daemon is local-only; query params appear in server logs but
       // not in third-party logs or browser history for programmatic clients.
       const queryToken = c.req.query("token");
-      if ((!auth || auth !== `Bearer ${API_TOKEN}`) && queryToken !== API_TOKEN) {
+      const queryTokenAsBearer = queryToken ? `Bearer ${queryToken}` : undefined;
+      if (!isValidToken(auth) && !isValidToken(queryTokenAsBearer)) {
         return c.json({ error: "Unauthorized" }, 401);
       }
     }
@@ -124,13 +144,12 @@ const PORT = parseInt(process.env.MIMIR_PORT ?? "3100", 10);
 
 async function main() {
   // DB 초기화
-  await getDb();
+  const db = await getDb();
   console.log(`[mimir] database initialized`);
 
-  // End zombie sessions/agents from previous daemon run
-  const db = await getDb();
-  const zombieSessions = await db.all(`UPDATE sessions SET status = 'ended', ended_at = now() WHERE status = 'active' RETURNING id`);
-  const zombieAgents = await db.all(`UPDATE agents SET status = 'completed', completed_at = now() WHERE status = 'active' RETURNING id`);
+  // End zombie sessions/agents from previous daemon run (LIMIT 1000 guards against runaway updates)
+  const zombieSessions = await db.all(`UPDATE sessions SET status = 'ended', ended_at = now() WHERE status = 'active' RETURNING id LIMIT 1000`);
+  const zombieAgents = await db.all(`UPDATE agents SET status = 'completed', completed_at = now() WHERE status = 'active' RETURNING id LIMIT 1000`);
   if (zombieSessions.length > 0 || zombieAgents.length > 0) {
     console.log(`[mimir] Cleaned up ${zombieSessions.length} zombie sessions, ${zombieAgents.length} zombie agents`);
   }
@@ -197,21 +216,33 @@ async function main() {
     startSlackBridge(slackProjectId);
   }
 
+  // Import shutdown helpers (already loaded at this point — no dynamic import needed)
+  const { stopBackfill } = await import("./services/observation-store.js");
+  const { stopSlackBridge } = await import("./services/slack.js");
+
   // graceful shutdown
   const shutdown = async () => {
     console.log("\n[mimir] shutting down...");
-    clearInterval(staleCleanupTimer);
-    const { pingInterval } = await import("./routes/ws.js");
-    clearInterval(pingInterval);
-    const { stopBackfill } = await import("./services/observation-store.js");
-    stopBackfill();
-    if (process.env.SLACK_BOT_TOKEN) {
-      const { stopSlackBridge } = await import("./services/slack.js");
-      stopSlackBridge();
+    // Hard timeout — if shutdown takes > 10s, force exit to avoid hanging
+    const hardTimeout = setTimeout(() => {
+      console.error("[mimir] shutdown timed out, forcing exit");
+      process.exit(1);
+    }, 10_000);
+    hardTimeout.unref();
+
+    try {
+      clearInterval(staleCleanupTimer);
+      clearInterval(pingInterval);
+      stopBackfill();
+      if (process.env.SLACK_BOT_TOKEN) {
+        stopSlackBridge();
+      }
+      await closeDb();
+    } catch (err) {
+      console.error("[mimir] error during shutdown:", err);
+    } finally {
+      process.exit(0);
     }
-    const { closeDb } = await import("./db.js");
-    await closeDb();
-    process.exit(0);
   };
 
   process.on("SIGINT", shutdown);

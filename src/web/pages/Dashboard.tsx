@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { api, type Session, type Agent, type Activity, type Task, type Stats, type DailyActivity, type AgentContextSize, type AgentTokenUsage, type TotalTokenUsage, formatTime } from "../lib/api";
-import { useWebSocket } from "../lib/useWebSocket";
+import { useSharedWebSocket } from "../lib/WebSocketContext";
 import { useProject } from "../lib/ProjectContext";
 import { useQuery } from "../lib/useQuery";
 import { Card } from "../components/Card";
@@ -12,7 +12,7 @@ import { RiTerminalBoxLine, RiRobot2Line, RiDatabase2Line, RiFileEditLine, RiPul
 type DashboardData = [Session[], Agent[], Agent[], Activity[], Stats, Task[], DailyActivity[], AgentContextSize[], AgentTokenUsage[], TotalTokenUsage];
 
 export default function Dashboard() {
-  const { connected, events } = useWebSocket();
+  const { connected, events } = useSharedWebSocket();
   const { selected: projectId } = useProject();
 
   const fetcher = useCallback(async () => {
@@ -31,7 +31,11 @@ export default function Dashboard() {
     ]) as Promise<DashboardData>;
   }, [projectId]);
 
-  const { data } = useQuery<DashboardData>({ fetcher, deps: [projectId] });
+  const { data } = useQuery<DashboardData>({
+    fetcher,
+    deps: [projectId],
+    reloadOnEvents: ["SessionStart", "SessionEnd", "SubagentStart", "SubagentStop", "TaskCompleted"],
+  });
 
   const [sessions = [], agents = [], allAgents = [], activities = [], stats, tasks = [], dailyActivity = [], contextSizes = [], tokenUsage = [], totalTokens] = data ?? [];
 
