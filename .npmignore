@@ -1,0 +1,2 @@
+# Local development settings — absolute paths from dev machine, never used by init command
+.claude/settings.local.json

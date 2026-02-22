@@ -18,7 +18,11 @@
   },
   "files": [
     "dist/",
-    ".claude/",
+    ".claude/agents/",
+    ".claude/skills/",
+    ".claude/rules/",
+    ".claude/agent-memory/",
+    ".claude/init-manifest.json",
     "src/hooks/hook.sh",
     "src/hooks/hooks-config.json"
   ],
