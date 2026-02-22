@@ -162,6 +162,29 @@ function writeHooksConfig(workspacePath: string, hookScript: string, port: numbe
   } catch { /* new file */ }
 
   settings.hooks = hooks;
+
+  // Agent Teams required settings (same as `mimir init`)
+  const env = (settings.env ?? {}) as Record<string, string>;
+  env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
+  settings.env = env;
+  settings.teammateMode = "tmux";
+  settings.enableAllProjectMcpServers = true;
+
+  // MCP tool permissions
+  const mcpPermissions = [
+    "mcp__mimir-messaging__send_message",
+    "mcp__mimir-messaging__read_messages",
+    "mcp__mimir-messaging__list_agents",
+    "mcp__mimir-messaging__register_agent",
+  ];
+  const perms = (settings.permissions ?? {}) as { allow?: string[] };
+  const existingPerms = new Set(perms.allow ?? []);
+  for (const perm of mcpPermissions) {
+    existingPerms.add(perm);
+  }
+  perms.allow = [...existingPerms];
+  settings.permissions = perms;
+
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
